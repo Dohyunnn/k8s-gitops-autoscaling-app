@@ -1,0 +1,9 @@
+# TODO: prometheus 설치 파일 작성
+# Prometheus 설치 파일 작성
+# 
+# 참고:
+# - https://prometheus.io/docs/prometheus/latest/installation/
+# - kubectl create namespace monitoring
+# - Prometheus Deployment, Service, ConfigMap 작성
+# - NodePort: 30090
+

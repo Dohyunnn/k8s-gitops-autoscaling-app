@@ -1,0 +1,9 @@
+# TODO: grafana 설치 파일 작성
+# Grafana 설치 파일 작성
+# 
+# 참고:
+# - https://grafana.com/docs/grafana/latest/setup-grafana/installation/kubernetes/
+# - Grafana Deployment, Service 작성
+# - NodePort: 30300
+# - 기본 계정: admin / admin
+

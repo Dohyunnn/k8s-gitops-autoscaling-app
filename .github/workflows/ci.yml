@@ -3,7 +3,8 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ master ]
-
+  pull_request:
+    branches: [ master ]
 
 env:
   DOCKER_IMAGE: dorrry/k8s-gitops-app
@@ -45,5 +46,5 @@ jobs:
         cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
         
     - name: Image digest
-      run: echo ${{ steps.meta.outputs.tags }}
+      run: echo "${{ steps.meta.outputs.tags }}"
 

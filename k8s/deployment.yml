@@ -16,8 +16,7 @@ spec:
     spec:
       containers:
       - name: webapp
-        # TODO: Docker Hub username으로 변경 필요
-        image: your-dockerhub-username/k8s-gitops-app:latest
+        image: dorrry/k8s-gitops-app:latest
         ports:
         - containerPort: 8080
           name: http

@@ -2,13 +2,11 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [ master ]
+
 
 env:
-  # TODO: Docker Hub username으로 변경 필요
-  DOCKER_IMAGE: your-dockerhub-username/k8s-gitops-app
+  DOCKER_IMAGE: dorrry/k8s-gitops-app
   
 jobs:
   build-and-push:

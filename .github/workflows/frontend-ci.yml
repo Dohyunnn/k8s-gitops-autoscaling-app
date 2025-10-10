@@ -1,13 +1,21 @@
-name: CI/CD Pipeline
+# 프론트엔드 CI/CD 파이프라인
+# frontend/ 폴더 변경 시 자동으로 Docker 이미지 빌드 및 배포
+name: Frontend CI/CD Pipeline
 
 on:
   push:
     branches: [ master ]
+    paths:
+      - 'frontend/**'   # 프론트엔드 코드 변경 시 실행
+      - 'shared/**'     # 공통 코드 변경 시 실행
   pull_request:
     branches: [ master ]
+    paths:
+      - 'frontend/**'
+      - 'shared/**'
 
 env:
-  DOCKER_IMAGE: dorrry/k8s-gitops-app
+  DOCKER_IMAGE: dorrry/k8s-gitops-app-frontend
   
 jobs:
   build-and-push:
@@ -38,7 +46,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ./frontend
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -48,7 +56,7 @@ jobs:
     - name: Image digest
       run: echo "${{ steps.meta.outputs.tags }}"
       
-    - name: Update deployment image tag
+    - name: Update frontend deployment image tag
       if: github.ref == 'refs/heads/master'
       run: |
         # Git 설정
@@ -57,15 +65,14 @@ jobs:
         
         # 이미지 태그 업데이트 (SHA 태그 사용)
         IMAGE_SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep -o '[a-f0-9]\{7\}' | head -1)
-        sed -i "s|image: .*|image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA|g" k8s/deployment.yml
+        sed -i "s|image: .*|image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA|g" k8s/frontend-deployment.yml
         
         # 변경사항 확인 후 커밋
         if git diff --quiet; then
           echo "No changes to commit"
         else
-          git add k8s/deployment.yml
-          git commit -m "Auto-deploy: Update image to $IMAGE_SHA [skip ci]"
+          git add k8s/frontend-deployment.yml
+          git commit -m "Auto-deploy frontend: Update image to $IMAGE_SHA [skip ci]"
           git push origin master
-          echo "Deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
+          echo "Frontend deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
         fi
-

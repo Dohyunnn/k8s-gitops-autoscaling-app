@@ -1,0 +1,39 @@
+# 백엔드 서비스 자동 스케일링 설정 (HPA)
+# CPU/메모리 사용률에 따라 Pod 수 자동 조정
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-deployment
+  minReplicas: 2    # 최소 Pod 수
+  maxReplicas: 10   # 최대 Pod 수
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # CPU 70% 이상 시 스케일 업
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # 메모리 80% 이상 시 스케일 업
+  behavior:
+    scaleDown:      # 스케일 다운 정책
+      stabilizationWindowSeconds: 300  # 5분 안정화 기간
+      policies:
+      - type: Percent
+        value: 50   # 최대 50% 감소
+        periodSeconds: 60
+    scaleUp:        # 스케일 업 정책
+      stabilizationWindowSeconds: 60   # 1분 안정화 기간
+      policies:
+      - type: Percent
+        value: 100  # 최대 100% 증가
+        periodSeconds: 30

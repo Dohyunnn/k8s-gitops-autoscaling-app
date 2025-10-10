@@ -1,0 +1,22 @@
+{
+  "name": "alcha-dashboard-frontend",
+  "version": "1.0.0",
+  "description": "주식 모니터링 대시보드 프론트엔드",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "echo 'Build completed'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "axios": "^1.4.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["stock", "dashboard", "monitoring"],
+  "author": "Alcha Team",
+  "license": "MIT"
+}

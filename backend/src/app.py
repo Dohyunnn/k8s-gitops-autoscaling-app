@@ -23,8 +23,8 @@ stock_symbols = {
     'AAPL': 'APPLE',
     'GOOGL': 'GOOGLE',
     'TSLA': 'TESLA',
-    '005930.KS': 'SAMSUNG',
-    '005380.KS': 'HYUNDAI'
+    '005930.KS': 'SAMSUNG ELECTRONICS',  # 삼성전자
+    '005380.KS': 'HYUNDAI MOTOR'  # 현대자동차
 }
 previous_prices = {}  # 이전 가격 저장
 ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')  # 환경변수에서 API 키 가져오기
@@ -237,50 +237,56 @@ def get_simulation_status():
 
 # 실제 주식 가격 조회 함수
 def get_real_stock_price(symbol):
-    """Alpha Vantage API를 사용하여 실제 주식 가격 조회"""
+    """Yahoo Finance API를 사용하여 실제 주식 가격 조회"""
     try:
-        if ALPHA_VANTAGE_API_KEY == 'demo':
-            # 데모 모드: 랜덤 가격 반환
-            base_prices = {
-                'AAPL': 150.25,
-                'GOOGL': 2800.50,
-                'TSLA': 800.00,
-                '005930.KS': 75000,
-                '005380.KS': 250000
-            }
-            base_price = base_prices.get(symbol, 100.0)
-            return base_price + random.uniform(-base_price * 0.05, base_price * 0.05)
+        # Yahoo Finance API 엔드포인트
+        # 한국 주식은 .KS 접미사 사용
+        yahoo_symbol = symbol
         
-        # 실제 API 호출
-        url = f"https://www.alphavantage.co/query"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}"
         params = {
-            'function': 'GLOBAL_QUOTE',
-            'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY
+            'interval': '1d',
+            'range': '1d'
         }
         
-        response = requests.get(url, params=params, timeout=10)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, params=params, headers=headers, timeout=10)
         data = response.json()
         
-        if 'Global Quote' in data:
-            price = float(data['Global Quote']['05. price'])
-            return price
-        else:
-            # API 오류 시 데모 데이터 반환
-            return get_real_stock_price('AAPL')  # 재귀 호출로 데모 모드 사용
+        # Yahoo Finance 응답 파싱
+        if 'chart' in data and 'result' in data['chart'] and len(data['chart']['result']) > 0:
+            result = data['chart']['result'][0]
+            if 'meta' in result and 'regularMarketPrice' in result['meta']:
+                price = result['meta']['regularMarketPrice']
+                return float(price)
+        
+        # API 실패 시 폴백: 실제 가격 범위 내에서 랜덤 생성
+        print(f"Yahoo Finance API 실패, 폴백 가격 사용: {symbol}")
+        fallback_prices = {
+            'AAPL': 229.00,
+            'GOOGL': 163.00,
+            'TSLA': 238.00,
+            '005930.KS': 57900,
+            '005380.KS': 252000
+        }
+        base_price = fallback_prices.get(symbol, 100.0)
+        return base_price + random.uniform(-base_price * 0.02, base_price * 0.02)
             
     except Exception as e:
         print(f"주식 가격 조회 오류 ({symbol}): {e}")
         # 오류 시 데모 데이터 반환
         base_prices = {
-            'AAPL': 150.25,
-            'GOOGL': 2800.50,
-            'TSLA': 800.00,
-            '005930.KS': 75000,
-            '005380.KS': 250000
+            'AAPL': 229.00,
+            'GOOGL': 163.00,
+            'TSLA': 238.00,
+            '005930.KS': 57900,
+            '005380.KS': 252000
         }
         base_price = base_prices.get(symbol, 100.0)
-        return base_price + random.uniform(-base_price * 0.05, base_price * 0.05)
+        return base_price + random.uniform(-base_price * 0.02, base_price * 0.02)
 
 def calculate_price_change(symbol, current_price):
     """가격 변동률 계산"""

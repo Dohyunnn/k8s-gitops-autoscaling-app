@@ -247,106 +247,121 @@
             margin-top: 20px;
         }
 
-        /* 하이브리드 트래픽 시뮬레이션 스타일 */
-        .auto-mode-control {
+        /* 긴급 상황 시뮬레이션 스타일 */
+        .emergency-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .emergency-btn-large {
+            padding: 18px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            color: white;
+            width: 100%;
+        }
+
+        .emergency-btn-large:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            filter: brightness(0.85);
+        }
+
+        .emergency-btn-large:active {
+            transform: translateY(0);
+        }
+
+        .btn-news {
+            background: #ff8c42;  /* 주황 */
+        }
+
+        .btn-trading {
+            background: #56e491;  /* 초록 */
+        }
+
+        .btn-error {
+            background: #ecc94b;  /* 노랑 */
+            color: #2d3748;  /* 노랑은 텍스트를 어둡게 */
+        }
+
+        /* 작은 자동 모드 토글 */
+        .auto-mode-control-small {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid #4299e1;
         }
 
-        .toggle-switch {
+        .toggle-switch-small {
             position: relative;
             display: inline-block;
-            width: 60px;
-            height: 34px;
+            width: 40px;
+            height: 22px;
         }
 
-        .toggle-switch input {
+        .toggle-switch-small input {
             opacity: 0;
             width: 0;
             height: 0;
         }
 
-        .slider {
+        .slider-small {
             position: absolute;
             cursor: pointer;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #ccc;
+            background-color: #718096;
             transition: .4s;
-            border-radius: 34px;
+            border-radius: 22px;
         }
 
-        .slider:before {
+        .slider-small:before {
             position: absolute;
             content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
             background-color: white;
             transition: .4s;
             border-radius: 50%;
         }
 
-        input:checked + .slider {
-            background-color: #2196F3;
+        input:checked + .slider-small {
+            background-color: #4299e1;
         }
 
-        input:checked + .slider:before {
-            transform: translateX(26px);
+        input:checked + .slider-small:before {
+            transform: translateX(18px);
         }
 
-        .emergency-controls {
-            margin-bottom: 20px;
-        }
-
-        .emergency-controls h4 {
-            color: #ff6b6b;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .emergency-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
+        .auto-mode-status-text {
             font-size: 12px;
-            font-weight: bold;
-            transition: all 0.3s ease;
+            color: #a0aec0;
         }
 
-        .emergency-btn.news {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-            color: white;
+        .status-display-tiny {
+            margin-top: 8px;
+            padding: 4px 8px;
+            text-align: center;
         }
 
-        .emergency-btn.trading {
-            background: linear-gradient(135deg, #feca57, #ff9ff3);
-            color: white;
-        }
-
-        .emergency-btn.error {
-            background: linear-gradient(135deg, #a55eea, #26de81);
-            color: white;
-        }
-
-        .emergency-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        .status-display-tiny span {
+            font-size: 10px;
+            color: #718096;
+            font-style: italic;
         }
 
         .simulation-controls {
@@ -419,36 +434,18 @@
             </div>
 
             <div class="card">
-                <h3>하이브리드 트래픽 시뮬레이션</h3>
-                
-                <!-- 자동 모드 토글 -->
-                <div class="auto-mode-control">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="autoModeToggle" checked onchange="toggleAutoMode()">
-                        <span class="slider"></span>
-                    </label>
-                    <span id="autoModeStatus">자동 모드 활성화</span>
-                </div>
+                <h3>긴급 상황 시뮬레이션</h3>
                 
                 <!-- 긴급 상황 버튼들 -->
                 <div class="emergency-controls">
-                    <h4>긴급 상황 시뮬레이션</h4>
-                    <div class="button-group">
-                        <button onclick="triggerEmergency('emergency_news')" class="emergency-btn news">긴급 뉴스</button>
-                        <button onclick="triggerEmergency('massive_trading')" class="emergency-btn trading">대량 거래</button>
-                        <button onclick="triggerEmergency('system_error')" class="emergency-btn error">시스템 오류</button>
-                    </div>
+                    <button onclick="triggerEmergency('emergency_news')" class="emergency-btn-large btn-news">긴급 뉴스</button>
+                    <button onclick="triggerEmergency('massive_trading')" class="emergency-btn-large btn-trading">대량 거래</button>
+                    <button onclick="triggerEmergency('system_error')" class="emergency-btn-large btn-error">시스템 오류</button>
                 </div>
                 
                 <!-- 시뮬레이션 제어 -->
                 <div class="simulation-controls">
                     <button onclick="stopSimulation()" class="stop-btn">시뮬레이션 중지</button>
-                </div>
-                
-                <!-- 현재 상태 표시 -->
-                <div class="status-display">
-                    <div id="currentStatus">현재 상태: 자동 모드 (장 시작 시간)</div>
-                    <div id="currentTime">현재 시간: <span id="timeDisplay">--:--:--</span></div>
                 </div>
             </div>
 
@@ -479,6 +476,20 @@
                     <span class="timestamp">[시작]</span>
                     <span>주식 모니터링 대시보드가 시작되었습니다.</span>
                 </div>
+            </div>
+            
+            <!-- 자동 모드 토글 (작게) -->
+            <div class="auto-mode-control-small">
+                <label class="toggle-switch-small">
+                    <input type="checkbox" id="autoModeToggle" checked onchange="toggleAutoMode()">
+                    <span class="slider-small"></span>
+                </label>
+                <span id="autoModeStatus" class="auto-mode-status-text">자동 트래픽 모드</span>
+            </div>
+            
+            <!-- 현재 상태 표시 (매우 작게) -->
+            <div class="status-display-tiny">
+                <span id="currentStatus">자동 모드 (장 시작 시간)</span>
             </div>
         </div>
     </div>
@@ -584,7 +595,6 @@
             .then(response => response.json())
             .then(data => {
                 const statusElement = document.getElementById('currentStatus');
-                const timeElement = document.getElementById('timeDisplay');
                 
                 let statusText = '';
                 if (data.emergency_mode) {
@@ -595,8 +605,7 @@
                     statusText = '수동 모드';
                 }
                 
-                statusElement.textContent = `현재 상태: ${statusText}`;
-                timeElement.textContent = data.current_time;
+                statusElement.textContent = statusText;
             })
             .catch(error => {
                 console.error('상태 업데이트 오류:', error);
@@ -698,6 +707,10 @@
                     트래픽 ${trafficLevel}
                 </div>
             `;
+
+            // 카드 클릭 시 차트 표시
+            card.onclick = () => showChart(stock);
+            card.style.cursor = 'pointer';
 
             return card;
         }

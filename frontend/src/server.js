@@ -73,6 +73,139 @@ app.post('/api/simulate-traffic', async (req, res) => {
     }
 });
 
+// 주식 데이터 API (백엔드로 프록시)
+app.get('/api/stock-data', async (req, res) => {
+    try {
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.get(`${backendUrl}/api/stock-data`, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('주식 데이터 조회 오류:', error.message);
+        res.status(500).json({
+            error: 'Stock data fetch failed',
+            message: '주식 데이터를 가져올 수 없습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 개별 주식 가격 조회 API (백엔드로 프록시)
+app.get('/api/stock-price/:symbol', async (req, res) => {
+    try {
+        const { symbol } = req.params;
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.get(`${backendUrl}/api/stock-price/${symbol}`, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('개별 주식 가격 조회 오류:', error.message);
+        res.status(500).json({
+            error: 'Stock price fetch failed',
+            message: '주식 가격을 가져올 수 없습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 트래픽 시뮬레이션 상태 API (백엔드로 프록시)
+app.get('/api/simulation-status', async (req, res) => {
+    try {
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.get(`${backendUrl}/api/simulation-status`, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('시뮬레이션 상태 조회 오류:', error.message);
+        res.status(500).json({
+            error: 'Simulation status fetch failed',
+            message: '시뮬레이션 상태를 가져올 수 없습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 자동 모드 토글 API (백엔드로 프록시)
+app.post('/api/toggle-auto-mode', async (req, res) => {
+    try {
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.post(`${backendUrl}/api/toggle-auto-mode`, {}, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('자동 모드 토글 오류:', error.message);
+        res.status(500).json({
+            error: 'Auto mode toggle failed',
+            message: '자동 모드 토글에 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 긴급 상황 시뮬레이션 API (백엔드로 프록시)
+app.post('/api/emergency-simulation', async (req, res) => {
+    try {
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.post(`${backendUrl}/api/emergency-simulation`, req.body, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('긴급 상황 시뮬레이션 오류:', error.message);
+        res.status(500).json({
+            error: 'Emergency simulation failed',
+            message: '긴급 상황 시뮬레이션에 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
+// 트래픽 시뮬레이션 중지 API (백엔드로 프록시)
+app.post('/api/stop-simulation', async (req, res) => {
+    try {
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
+        const response = await axios.post(`${backendUrl}/api/stop-simulation`, {}, {
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        res.json(response.data);
+    } catch (error) {
+        console.error('시뮬레이션 중지 오류:', error.message);
+        res.status(500).json({
+            error: 'Simulation stop failed',
+            message: '시뮬레이션 중지에 실패했습니다.',
+            details: error.message
+        });
+    }
+});
+
 // 404 에러 처리
 app.use((req, res) => {
     res.status(404).json({

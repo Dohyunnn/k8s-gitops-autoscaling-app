@@ -10,13 +10,14 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
-            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
+            background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #2d3748 100%);
             color: white;
             min-height: 100vh;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
+            padding: 0 20px;
         }
         .header {
             text-align: center;
@@ -91,20 +92,19 @@
         /* 주식 카드 스타일 */
         .stock-cards {
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 30px;
             justify-content: space-between;
+            padding: 0 10px;
         }
         .stock-card {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            padding: 15px;
+            padding: 12px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
             flex: 1;
-            min-width: 200px;
             cursor: pointer;
         }
         .stock-card:hover {
@@ -113,20 +113,20 @@
             background: rgba(255, 255, 255, 0.15);
         }
         .stock-symbol {
-            font-size: 21px;
+            font-size: 18px;
             font-weight: bold;
             color: white;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .stock-name {
-            font-size: 14px;
+            font-size: 11px;
             color: rgba(255, 255, 255, 0.8);
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .stock-price {
-            font-size: 21px;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
         .stock-change {
             font-size: 14px;
@@ -212,7 +212,7 @@
             backdrop-filter: blur(5px);
         }
         .chart-modal-content {
-            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
+            background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #2d3748 100%);
             margin: 5% auto;
             padding: 30px;
             border-radius: 20px;
@@ -246,6 +246,149 @@
             height: 400px;
             margin-top: 20px;
         }
+
+        /* 하이브리드 트래픽 시뮬레이션 스타일 */
+        .auto-mode-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .emergency-controls {
+            margin-bottom: 20px;
+        }
+
+        .emergency-controls h4 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .emergency-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .emergency-btn.news {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .emergency-btn.trading {
+            background: linear-gradient(135deg, #feca57, #ff9ff3);
+            color: white;
+        }
+
+        .emergency-btn.error {
+            background: linear-gradient(135deg, #a55eea, #26de81);
+            color: white;
+        }
+
+        .emergency-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .simulation-controls {
+            margin-bottom: 20px;
+        }
+
+        .stop-btn {
+            background: linear-gradient(135deg, #ff4757, #c44569);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .stop-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-display {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00d2d3;
+        }
+
+        .status-display div {
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        #currentStatus {
+            color: #00d2d3;
+            font-weight: bold;
+        }
+
+        #currentTime {
+            color: #ffffff;
+        }
         
         /* 통화 표시 스타일 */
         .currency-usd {
@@ -276,12 +419,36 @@
             </div>
 
             <div class="card">
-                <h3>트래픽 시뮬레이션</h3>
-                <button class="button" onclick="simulateMarketOpen()">장 시작 시뮬레이션</button>
-                <button class="button" onclick="simulateMarketClose()">장 종료 시뮬레이션</button>
-                <button class="button" onclick="simulateNightMode()">야간 모드</button>
-                <div class="traffic-info" id="trafficInfo">
-                    현재 트래픽: <span id="currentTraffic">0</span> 요청/분
+                <h3>하이브리드 트래픽 시뮬레이션</h3>
+                
+                <!-- 자동 모드 토글 -->
+                <div class="auto-mode-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoModeToggle" checked onchange="toggleAutoMode()">
+                        <span class="slider"></span>
+                    </label>
+                    <span id="autoModeStatus">자동 모드 활성화</span>
+                </div>
+                
+                <!-- 긴급 상황 버튼들 -->
+                <div class="emergency-controls">
+                    <h4>긴급 상황 시뮬레이션</h4>
+                    <div class="button-group">
+                        <button onclick="triggerEmergency('emergency_news')" class="emergency-btn news">긴급 뉴스</button>
+                        <button onclick="triggerEmergency('massive_trading')" class="emergency-btn trading">대량 거래</button>
+                        <button onclick="triggerEmergency('system_error')" class="emergency-btn error">시스템 오류</button>
+                    </div>
+                </div>
+                
+                <!-- 시뮬레이션 제어 -->
+                <div class="simulation-controls">
+                    <button onclick="stopSimulation()" class="stop-btn">시뮬레이션 중지</button>
+                </div>
+                
+                <!-- 현재 상태 표시 -->
+                <div class="status-display">
+                    <div id="currentStatus">현재 상태: 자동 모드 (장 시작 시간)</div>
+                    <div id="currentTime">현재 시간: <span id="timeDisplay">--:--:--</span></div>
                 </div>
             </div>
 
@@ -351,65 +518,118 @@
             }
         }
 
-        // 트래픽 시뮬레이션
-        function simulateMarketOpen() {
-            const trafficElement = document.getElementById('currentTraffic');
-            trafficElement.textContent = '1000+';
-            trafficElement.style.color = '#4CAF50';
+        // 하이브리드 트래픽 시뮬레이션
+        function toggleAutoMode() {
+            const toggle = document.getElementById('autoModeToggle');
+            const status = document.getElementById('autoModeStatus');
             
-            // 백엔드에 트래픽 증가 요청
-            fetch('/api/simulate-traffic', {
+            fetch('/api/toggle-auto-mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('자동 모드 토글:', data);
+                status.textContent = data.auto_mode_enabled ? '자동 모드 활성화' : '자동 모드 비활성화';
+                updateStatusDisplay();
+            })
+            .catch(error => {
+                console.error('자동 모드 토글 오류:', error);
+                // 토글 상태 복원
+                toggle.checked = !toggle.checked;
+            });
+        }
+
+        function triggerEmergency(emergencyType) {
+            fetch('/api/emergency-simulation', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    scenario: 'market_open',
-                    traffic_level: 'high'
+                    emergency_type: emergencyType
                 })
             })
             .then(response => response.json())
             .then(data => {
-                console.log('트래픽 시뮬레이션 시작:', data);
+                console.log('긴급 상황 시뮬레이션:', data);
+                updateStatusDisplay();
+                
+                // 긴급 상황 알림 표시
+                showEmergencyAlert(data.message, emergencyType);
             })
             .catch(error => {
-                console.error('트래픽 시뮬레이션 오류:', error);
+                console.error('긴급 상황 시뮬레이션 오류:', error);
             });
         }
 
-        function simulateMarketClose() {
-            const trafficElement = document.getElementById('currentTraffic');
-            trafficElement.textContent = '100';
-            trafficElement.style.color = '#ff9800';
-            
-            fetch('/api/simulate-traffic', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    scenario: 'market_close',
-                    traffic_level: 'medium'
-                })
+        function stopSimulation() {
+            fetch('/api/stop-simulation', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('트래픽 시뮬레이션 중지:', data);
+                updateStatusDisplay();
+            })
+            .catch(error => {
+                console.error('트래픽 시뮬레이션 중지 오류:', error);
             });
         }
 
-        function simulateNightMode() {
-            const trafficElement = document.getElementById('currentTraffic');
-            trafficElement.textContent = '10';
-            trafficElement.style.color = '#9e9e9e';
-            
-            fetch('/api/simulate-traffic', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    scenario: 'night_mode',
-                    traffic_level: 'low'
-                })
+        function updateStatusDisplay() {
+            fetch('/api/simulation-status')
+            .then(response => response.json())
+            .then(data => {
+                const statusElement = document.getElementById('currentStatus');
+                const timeElement = document.getElementById('timeDisplay');
+                
+                let statusText = '';
+                if (data.emergency_mode) {
+                    statusText = `긴급 상황 모드 (${data.traffic_level})`;
+                } else if (data.auto_mode_enabled) {
+                    statusText = `자동 모드 (${data.auto_traffic_level})`;
+                } else {
+                    statusText = '수동 모드';
+                }
+                
+                statusElement.textContent = `현재 상태: ${statusText}`;
+                timeElement.textContent = data.current_time;
+            })
+            .catch(error => {
+                console.error('상태 업데이트 오류:', error);
             });
         }
+
+        function showEmergencyAlert(message, type) {
+            // 간단한 알림 표시 (실제로는 더 정교한 알림 시스템 구현 가능)
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                z-index: 1000;
+                font-weight: bold;
+                animation: slideIn 0.3s ease;
+            `;
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+            
+            // 3초 후 자동 제거
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
+
+        // 상태 업데이트를 위한 주기적 호출
+        setInterval(updateStatusDisplay, 5000);
 
         // 주식 데이터 로드
         function loadStockData() {
@@ -462,10 +682,15 @@
                 trafficLevel = 'medium';
             }
 
+            const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
+            const currencyClass = (stock.symbol === '005930.KS' || stock.symbol === '005380.KS') ? 'currency-krw' : 'currency-usd';
+            const priceFormat = (stock.symbol === '005930.KS' || stock.symbol === '005380.KS') ? 
+                `₩${stock.price.toLocaleString()}` : `$${stock.price.toLocaleString()}`;
+
             card.innerHTML = `
-                <div class="stock-symbol">${stock.symbol}</div>
-                <div class="stock-name">${stock.name}</div>
-                <div class="stock-price">$${stock.price.toLocaleString()}</div>
+                <div class="stock-symbol">${displayName}</div>
+                <div class="stock-name">${stock.symbol}</div>
+                <div class="stock-price ${currencyClass}">${priceFormat}</div>
                 <div class="stock-change ${changeClass}">
                     ${changeSymbol}${stock.change_percent.toFixed(2)}%
                 </div>
@@ -574,7 +799,7 @@
             const title = document.getElementById('chartTitle');
             const canvas = document.getElementById('stockChart');
             
-            const displayName = stockNameMap[stock.symbol] || stock.symbol;
+            const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
             title.textContent = `${displayName} 주식 차트`;
             
             // 기존 차트 제거

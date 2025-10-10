@@ -12,8 +12,7 @@ metadata:
     argocd-image-updater.argoproj.io/backend.update-strategy: latest
     argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9a-f]{7}$
     argocd-image-updater.argoproj.io/backend.force-update: "true"
-    argocd-image-updater.argoproj.io/write-back-method: git
-    argocd-image-updater.argoproj.io/git-branch: main
+    argocd-image-updater.argoproj.io/write-back-method: argocd
 spec:
   replicas: 2  # 초기 Pod 수 (HPA에 의해 자동 조정됨)
   selector:

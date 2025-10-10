@@ -64,22 +64,9 @@ jobs:
     - name: Update backend deployment image tag
       if: github.ref == 'refs/heads/master'
       run: |
-        # Git 설정
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # 이미지 태그 업데이트 (SHA 태그 사용)
-        # ArgoCD가 Git 변경을 감지하여 자동 배포하도록 함
+        # 이미지 태그 추출 (ArgoCD Image Updater용)
         IMAGE_SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep -o '[a-f0-9]\{7\}' | head -1)
-        sed -i "s|image: .*|image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA|g" k8s/backend-deployment.yml
         
-        # 변경사항 확인 후 커밋
-        if git diff --quiet; then
-          echo "No changes to commit"
-        else
-          git add k8s/backend-deployment.yml
-          git commit -m "Auto-deploy backend: Update image to $IMAGE_SHA [skip ci]"
-          git pull origin master --rebase  # 원격 변경사항 먼저 가져오기
-          git push origin master
-          echo "Backend deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
-        fi
+        # 이미지 빌드 완료 - ArgoCD Image Updater가 자동 감지
+        echo "Backend image built: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
+        echo "ArgoCD Image Updater will automatically detect and deploy this image"

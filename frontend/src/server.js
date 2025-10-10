@@ -20,7 +20,7 @@ app.get('/', (req, res) => {
 app.get('/api/health', async (req, res) => {
     try {
         // 백엔드 헬스체크도 함께 확인 (타임아웃 설정)
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
         const backendHealth = await axios.get(`${backendUrl}/api/health`, {
             timeout: 5000,  // 5초 타임아웃
             headers: {
@@ -59,7 +59,7 @@ app.post('/api/simulate-traffic', async (req, res) => {
     
     try {
         // 백엔드 서비스로 프록시
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
+        const backendUrl = process.env.BACKEND_URL || 'http://backend-service:8081';
         const response = await axios.post(`${backendUrl}/api/simulate-traffic`, req.body);
         
         res.json(response.data);

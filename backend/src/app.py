@@ -15,39 +15,65 @@ app = Flask(__name__)
 traffic_simulation_active = False  # 시뮬레이션 활성화 여부
 current_traffic_level = 'normal'   # 현재 트래픽 레벨 (high/medium/low/normal)
 simulation_thread = None           # 시뮬레이션 스레드
+auto_mode_enabled = True           # 자동 모드 활성화 여부
+emergency_mode = False             # 긴급 상황 모드 여부
 
 # 주식 데이터 관리
 stock_symbols = {
-    'AAPL': 'Apple Inc.',
-    'GOOGL': 'Alphabet Inc.',
-    'TSLA': 'Tesla Inc.',
-    '005930.KS': 'Samsung Electronics',
-    '005380.KS': 'Hyundai Motor'
+    'AAPL': 'APPLE',
+    'GOOGL': 'GOOGLE',
+    'TSLA': 'TESLA',
+    '005930.KS': 'SAMSUNG',
+    '005380.KS': 'HYUNDAI'
 }
 previous_prices = {}  # 이전 가격 저장
 ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')  # 환경변수에서 API 키 가져오기
 
+# 자동 시간 기반 트래픽 레벨 결정
+def get_auto_traffic_level():
+    """현재 시간에 따른 자동 트래픽 레벨 결정"""
+    now = datetime.now()
+    hour = now.hour
+    
+    # 한국 시간 기준 (UTC+9)
+    if 9 <= hour < 15:  # 장 시작 시간 (09:00-15:00)
+        return 'high'
+    elif 15 <= hour < 18:  # 장 종료 시간 (15:00-18:00)
+        return 'medium'
+    else:  # 야간 시간 (18:00-09:00)
+        return 'low'
+
+# 긴급 상황별 트래픽 레벨
+emergency_traffic_levels = {
+    'emergency_news': 'high',      # 긴급 뉴스: 매우 높은 트래픽
+    'massive_trading': 'high',     # 대량 거래: 높은 트래픽
+    'system_error': 'medium'       # 시스템 오류: 중간 트래픽
+}
+
 # 트래픽 시뮬레이션 함수 -HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
 def simulate_traffic():
-
-    global traffic_simulation_active, current_traffic_level
+    global traffic_simulation_active, current_traffic_level, auto_mode_enabled, emergency_mode
     
     while traffic_simulation_active:
+        # 자동 모드가 활성화되고 긴급 상황이 아닐 때만 시간 기반 트래픽 적용
+        if auto_mode_enabled and not emergency_mode:
+            current_traffic_level = get_auto_traffic_level()
+        
         if current_traffic_level == 'high':
-            # 장 시작 시뮬레이션: 높은 트래픽 (1000+ 요청/분)
+            # 높은 트래픽 (1000+ 요청/분)
             for _ in range(100):
                 # CPU 집약적 작업으로 HPA 트리거 유도
                 sum(range(1000))
             time.sleep(0.1)  # 100ms 간격으로 빠른 반복
             
         elif current_traffic_level == 'medium':
-            # 장 종료 시뮬레이션: 중간 트래픽 (100 요청/분)
+            # 중간 트래픽 (100 요청/분)
             for _ in range(50):
                 sum(range(500))
             time.sleep(0.2)  # 200ms 간격
             
         elif current_traffic_level == 'low':
-            # 야간 모드: 낮은 트래픽 (10 요청/분)
+            # 낮은 트래픽 (10 요청/분)
             for _ in range(10):
                 sum(range(100))
             time.sleep(1.0)  # 1초 간격으로 느린 반복
@@ -110,16 +136,100 @@ def simulate_traffic_endpoint():
 # 트래픽 시뮬레이션 중지 API
 @app.route('/api/stop-simulation', methods=['POST'])
 def stop_simulation():
-
-    global traffic_simulation_active, simulation_thread
+    global traffic_simulation_active, simulation_thread, emergency_mode
     
     traffic_simulation_active = False
+    emergency_mode = False
     if simulation_thread:
         simulation_thread.join()
     
     return jsonify({
         'success': True,
         'message': '트래픽 시뮬레이션 중지됨',
+        'timestamp': datetime.now().isoformat()
+    })
+
+# 긴급 상황 시뮬레이션 API
+@app.route('/api/emergency-simulation', methods=['POST'])
+def emergency_simulation():
+    global traffic_simulation_active, current_traffic_level, simulation_thread, emergency_mode, auto_mode_enabled
+    
+    data = request.get_json()
+    emergency_type = data.get('emergency_type', 'emergency_news')
+    
+    # 긴급 상황별 트래픽 레벨 설정
+    if emergency_type in emergency_traffic_levels:
+        current_traffic_level = emergency_traffic_levels[emergency_type]
+        emergency_mode = True
+        auto_mode_enabled = False  # 긴급 상황 시 자동 모드 비활성화
+        
+        # 기존 시뮬레이션 중지
+        traffic_simulation_active = False
+        if simulation_thread:
+            simulation_thread.join()
+        
+        # 새 시뮬레이션 시작
+        traffic_simulation_active = True
+        simulation_thread = threading.Thread(target=simulate_traffic)
+        simulation_thread.daemon = True
+        simulation_thread.start()
+        
+        emergency_messages = {
+            'emergency_news': '긴급 뉴스 발생 - 높은 트래픽 시뮬레이션',
+            'massive_trading': '대량 거래 체결 - 높은 트래픽 시뮬레이션',
+            'system_error': '시스템 오류 발생 - 중간 트래픽 시뮬레이션'
+        }
+        
+        return jsonify({
+            'success': True,
+            'message': emergency_messages.get(emergency_type, '긴급 상황 시뮬레이션 시작'),
+            'emergency_type': emergency_type,
+            'traffic_level': current_traffic_level,
+            'timestamp': datetime.now().isoformat()
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': '알 수 없는 긴급 상황 타입',
+            'timestamp': datetime.now().isoformat()
+        }), 400
+
+# 자동 모드 토글 API
+@app.route('/api/toggle-auto-mode', methods=['POST'])
+def toggle_auto_mode():
+    global auto_mode_enabled, emergency_mode, traffic_simulation_active, simulation_thread
+    
+    auto_mode_enabled = not auto_mode_enabled
+    
+    if auto_mode_enabled:
+        emergency_mode = False
+        # 자동 모드 활성화 시 시뮬레이션 재시작
+        traffic_simulation_active = False
+        if simulation_thread:
+            simulation_thread.join()
+        
+        traffic_simulation_active = True
+        simulation_thread = threading.Thread(target=simulate_traffic)
+        simulation_thread.daemon = True
+        simulation_thread.start()
+    
+    return jsonify({
+        'success': True,
+        'message': f'자동 모드 {"활성화" if auto_mode_enabled else "비활성화"}됨',
+        'auto_mode_enabled': auto_mode_enabled,
+        'timestamp': datetime.now().isoformat()
+    })
+
+# 트래픽 시뮬레이션 상태 조회 API
+@app.route('/api/simulation-status', methods=['GET'])
+def get_simulation_status():
+    return jsonify({
+        'active': traffic_simulation_active,
+        'traffic_level': current_traffic_level,
+        'auto_mode_enabled': auto_mode_enabled,
+        'emergency_mode': emergency_mode,
+        'current_time': datetime.now().strftime('%H:%M:%S'),
+        'auto_traffic_level': get_auto_traffic_level() if auto_mode_enabled else None,
         'timestamp': datetime.now().isoformat()
     })
 

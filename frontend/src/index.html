@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>주식 모니터링 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
             color: white;
             min-height: 100vh;
         }
@@ -89,10 +90,11 @@
         
         /* 주식 카드 스타일 */
         .stock-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
             gap: 15px;
             margin-bottom: 30px;
+            justify-content: space-between;
         }
         .stock-card {
             background: rgba(255, 255, 255, 0.1);
@@ -101,24 +103,28 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
+            flex: 1;
+            min-width: 200px;
+            cursor: pointer;
         }
         .stock-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            background: rgba(255, 255, 255, 0.15);
         }
         .stock-symbol {
-            font-size: 18px;
+            font-size: 21px;
             font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 5px;
+            color: white;
+            margin-bottom: 8px;
         }
         .stock-name {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 12px;
         }
         .stock-price {
-            font-size: 24px;
+            font-size: 21px;
             font-weight: bold;
             margin-bottom: 5px;
         }
@@ -192,6 +198,62 @@
         .traffic {
             color: #4CAF50;
         }
+        
+        /* 차트 모달 스타일 */
+        .chart-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        .chart-modal-content {
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 80%;
+            max-width: 800px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .chart-close {
+            color: white;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+        }
+        .chart-close:hover {
+            color: #ffd700;
+        }
+        .chart-title {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+        
+        /* 통화 표시 스타일 */
+        .currency-usd {
+            color: #4CAF50;
+        }
+        .currency-krw {
+            color: #ff9800;
+        }
     </style>
 </head>
 <body>
@@ -250,6 +312,17 @@
                     <span class="timestamp">[시작]</span>
                     <span>주식 모니터링 대시보드가 시작되었습니다.</span>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 차트 모달 -->
+    <div id="chartModal" class="chart-modal">
+        <div class="chart-modal-content">
+            <span class="chart-close" onclick="closeChart()">&times;</span>
+            <div class="chart-title" id="chartTitle">주식 차트</div>
+            <div class="chart-container">
+                <canvas id="stockChart"></canvas>
             </div>
         </div>
     </div>
@@ -490,6 +563,119 @@
                     backendStatusElement.className = '';  // loading 클래스 제거
                     connectionStatusElement.textContent = '연결 실패';
                 });
+        }
+
+        // 차트 관련 변수
+        let currentChart = null;
+
+        // 차트 표시
+        function showChart(stock) {
+            const modal = document.getElementById('chartModal');
+            const title = document.getElementById('chartTitle');
+            const canvas = document.getElementById('stockChart');
+            
+            const displayName = stockNameMap[stock.symbol] || stock.symbol;
+            title.textContent = `${displayName} 주식 차트`;
+            
+            // 기존 차트 제거
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // 샘플 차트 데이터 생성 (실제로는 API에서 가져와야 함)
+            const chartData = generateSampleChartData(stock);
+            
+            // Chart.js로 차트 생성
+            const ctx = canvas.getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: `${displayName} 가격`,
+                        data: chartData.prices,
+                        borderColor: stock.change_percent >= 0 ? '#4CAF50' : '#f44336',
+                        backgroundColor: stock.change_percent >= 0 ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: 'white',
+                                callback: function(value) {
+                                    return formatPrice(stock.symbol, value);
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            modal.style.display = 'block';
+        }
+
+        // 차트 닫기
+        function closeChart() {
+            const modal = document.getElementById('chartModal');
+            modal.style.display = 'none';
+            
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+        }
+
+        // 샘플 차트 데이터 생성
+        function generateSampleChartData(stock) {
+            const labels = [];
+            const prices = [];
+            const basePrice = stock.price;
+            
+            // 최근 24시간 데이터 생성
+            for (let i = 23; i >= 0; i--) {
+                const date = new Date();
+                date.setHours(date.getHours() - i);
+                labels.push(date.getHours() + ':00');
+                
+                // 가격 변동 시뮬레이션
+                const variation = (Math.random() - 0.5) * basePrice * 0.1;
+                const price = basePrice + variation;
+                prices.push(Math.max(price, basePrice * 0.8)); // 최소 80% 보장
+            }
+            
+            return { labels, prices };
+        }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('chartModal');
+            if (event.target === modal) {
+                closeChart();
+            }
         }
 
         // 초기화

@@ -64,9 +64,20 @@ jobs:
     - name: Update frontend deployment image tag
       if: github.ref == 'refs/heads/master'
       run: |
-        # 이미지 태그 추출 (ArgoCD Image Updater용)
-        IMAGE_SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep -o '[a-f0-9]\{7\}' | head -1)
+        # Git 설정
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
         
-        # 이미지 빌드 완료 - ArgoCD Image Updater가 자동 감지
-        echo "Frontend image built: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
-        echo "ArgoCD Image Updater will automatically detect and deploy this image"
+        # 이미지 태그 추출 및 업데이트
+        IMAGE_SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep -o '[a-f0-9]\{7\}' | head -1)
+        sed -i "s|image: .*|image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA|g" k8s/frontend-deployment.yml
+        
+        # 변경사항 확인 후 커밋
+        if git diff --quiet; then
+          echo "No changes to commit"
+        else
+          git add k8s/frontend-deployment.yml
+          git commit -m "Auto-deploy frontend: Update image to $IMAGE_SHA [skip ci]"
+          git push origin master
+          echo "Frontend deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
+        fi

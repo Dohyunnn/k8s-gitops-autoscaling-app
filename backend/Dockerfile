@@ -14,3 +14,5 @@ EXPOSE 8080
 
 # 실행 명령어
 CMD ["python", "app.py"]
+
+# CI 테스트 

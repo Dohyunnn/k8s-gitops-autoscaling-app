@@ -14,3 +14,5 @@ EXPOSE 3000
 
 # 실행 명령어
 CMD ["node", "server.js"]
+
+# CI 테스트 

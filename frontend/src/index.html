@@ -86,6 +86,112 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* 주식 카드 스타일 */
+        .stock-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stock-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stock-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        .stock-symbol {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+        .stock-name {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 10px;
+        }
+        .stock-price {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stock-change {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .stock-change.positive {
+            color: #4CAF50;
+        }
+        .stock-change.negative {
+            color: #f44336;
+        }
+        .stock-change.neutral {
+            color: #9e9e9e;
+        }
+        .traffic-indicator {
+            font-size: 12px;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .traffic-indicator.high {
+            background: rgba(244, 67, 54, 0.3);
+            color: #f44336;
+        }
+        .traffic-indicator.medium {
+            background: rgba(255, 152, 0, 0.3);
+            color: #ff9800;
+        }
+        .traffic-indicator.low {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+        .traffic-indicator.normal {
+            background: rgba(158, 158, 158, 0.3);
+            color: #9e9e9e;
+        }
+        
+        /* 트래픽 로그 스타일 */
+        .traffic-log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .traffic-log-entry {
+            margin-bottom: 8px;
+            font-size: 14px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .traffic-log-entry:last-child {
+            border-bottom: none;
+        }
+        .timestamp {
+            color: rgba(255, 255, 255, 0.6);
+            margin-right: 10px;
+        }
+        .symbol {
+            color: #ffd700;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .change {
+            margin-right: 10px;
+        }
+        .traffic {
+            color: #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -93,6 +199,11 @@
         <div class="header">
             <h1>주식 모니터링 대시보드</h1>
             <p>실시간 주식 시장 모니터링 및 트래픽 시뮬레이션</p>
+        </div>
+
+        <!-- 실시간 주식 카드 -->
+        <div class="stock-cards" id="stockCards">
+            <!-- 주식 카드들이 여기에 동적으로 생성됩니다 -->
         </div>
 
         <div class="dashboard">
@@ -117,6 +228,7 @@
                 <div id="systemStatus">
                     <div>백엔드: <span id="backendStatus" class="loading"></span></div>
                     <div>연결 상태: <span id="connectionStatus">확인 중...</span></div>
+                    <div>트래픽 레벨: <span id="trafficLevel">normal</span></div>
                 </div>
             </div>
 
@@ -126,6 +238,17 @@
                     <div>현재 Pod 수: <span id="podCount">확인 중...</span></div>
                     <div>CPU 사용률: <span id="cpuUsage">확인 중...</span></div>
                     <div>메모리 사용률: <span id="memoryUsage">확인 중...</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 트래픽 시뮬레이션 로그 -->
+        <div class="card">
+            <h3>트래픽 시뮬레이션 로그</h3>
+            <div class="traffic-log" id="trafficLog">
+                <div class="traffic-log-entry">
+                    <span class="timestamp">[시작]</span>
+                    <span>주식 모니터링 대시보드가 시작되었습니다.</span>
                 </div>
             </div>
         </div>
@@ -215,6 +338,123 @@
             });
         }
 
+        // 주식 데이터 로드
+        function loadStockData() {
+            fetch('/api/stock-data')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('주식 데이터 응답:', data);
+                    updateStockCards(data.stocks);
+                    updateTrafficLevel(data.traffic_level);
+                })
+                .catch(error => {
+                    console.error('주식 데이터 로드 오류:', error);
+                    // 오류 시 기본 카드 표시
+                    showDefaultStockCards();
+                });
+        }
+
+        // 주식 카드 업데이트
+        function updateStockCards(stocks) {
+            const stockCardsContainer = document.getElementById('stockCards');
+            stockCardsContainer.innerHTML = '';
+
+            stocks.forEach(stock => {
+                const stockCard = createStockCard(stock);
+                stockCardsContainer.appendChild(stockCard);
+            });
+        }
+
+        // 주식 카드 생성
+        function createStockCard(stock) {
+            const card = document.createElement('div');
+            card.className = 'stock-card';
+            card.setAttribute('data-symbol', stock.symbol);
+
+            const changeClass = stock.change_percent > 0 ? 'positive' : 
+                               stock.change_percent < 0 ? 'negative' : 'neutral';
+            
+            const changeSymbol = stock.change_percent > 0 ? '+' : '';
+            
+            // 트래픽 레벨에 따른 표시
+            let trafficLevel = 'normal';
+            if (Math.abs(stock.change_percent) > 10) {
+                trafficLevel = 'high';
+            } else if (Math.abs(stock.change_percent) > 5) {
+                trafficLevel = 'medium';
+            }
+
+            card.innerHTML = `
+                <div class="stock-symbol">${stock.symbol}</div>
+                <div class="stock-name">${stock.name}</div>
+                <div class="stock-price">$${stock.price.toLocaleString()}</div>
+                <div class="stock-change ${changeClass}">
+                    ${changeSymbol}${stock.change_percent.toFixed(2)}%
+                </div>
+                <div class="traffic-indicator ${trafficLevel}">
+                    트래픽 ${trafficLevel}
+                </div>
+            `;
+
+            return card;
+        }
+
+        // 기본 주식 카드 표시 (오류 시)
+        function showDefaultStockCards() {
+            const defaultStocks = [
+                { symbol: 'AAPL', name: 'Apple Inc.', price: 150.25, change_percent: 0 },
+                { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2800.50, change_percent: 0 },
+                { symbol: 'TSLA', name: 'Tesla Inc.', price: 800.00, change_percent: 0 },
+                { symbol: '005930.KS', name: 'Samsung Electronics', price: 75000, change_percent: 0 },
+                { symbol: '005380.KS', name: 'Hyundai Motor', price: 250000, change_percent: 0 }
+            ];
+            updateStockCards(defaultStocks);
+        }
+
+        // 트래픽 레벨 업데이트
+        function updateTrafficLevel(trafficLevel) {
+            const trafficLevelElement = document.getElementById('trafficLevel');
+            if (trafficLevelElement) {
+                trafficLevelElement.textContent = trafficLevel;
+                
+                // 트래픽 레벨에 따른 색상 변경
+                trafficLevelElement.className = '';
+                trafficLevelElement.classList.add(trafficLevel);
+            }
+        }
+
+        // 트래픽 로그 추가
+        function addTrafficLogEntry(symbol, priceChange, trafficLevel) {
+            const trafficLog = document.getElementById('trafficLog');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'traffic-log-entry';
+            
+            const changeClass = priceChange > 0 ? 'positive' : 'negative';
+            const changeSymbol = priceChange > 0 ? '+' : '';
+            
+            logEntry.innerHTML = `
+                <span class="timestamp">[${timestamp}]</span>
+                <span class="symbol">${symbol}</span>
+                <span class="change ${changeClass}">${changeSymbol}${priceChange.toFixed(2)}%</span>
+                <span class="traffic">→ 트래픽 ${trafficLevel}</span>
+            `;
+            
+            // 맨 위에 추가
+            trafficLog.insertBefore(logEntry, trafficLog.firstChild);
+            
+            // 최대 10개 항목만 유지
+            while (trafficLog.children.length > 10) {
+                trafficLog.removeChild(trafficLog.lastChild);
+            }
+        }
+
         // 시스템 상태 확인
         function checkSystemStatus() {
             fetch('/api/health')
@@ -256,10 +496,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             checkMarketStatus();
             checkSystemStatus();
+            loadStockData();
             
             // 1분마다 상태 업데이트
             setInterval(checkMarketStatus, 60000);
             setInterval(checkSystemStatus, 30000);
+            
+            // 30초마다 주식 데이터 업데이트
+            setInterval(loadStockData, 30000);
         });
     </script>
 </body>

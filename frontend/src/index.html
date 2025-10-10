@@ -89,22 +89,67 @@
             to { transform: rotate(360deg); }
         }
         
-        /* 주식 카드 스타일 */
-        .stock-cards {
+        /* 검색 스타일 */
+        .search-container {
             display: flex;
             gap: 10px;
+            margin: 20px auto;
+            max-width: 600px;
+            padding: 0 20px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #00d2d3;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .search-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #00d2d3, #0099cc);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 210, 211, 0.4);
+        }
+
+        /* 주식 카드 스타일 */
+        .stock-cards {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
             margin-bottom: 30px;
-            justify-content: space-between;
             padding: 0 10px;
         }
         .stock-card {
             background: rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            padding: 12px;
+            padding: 15px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
-            flex: 1;
             cursor: pointer;
         }
         .stock-card:hover {
@@ -421,6 +466,12 @@
             <p>실시간 주식 시장 모니터링 및 트래픽 시뮬레이션</p>
         </div>
 
+        <!-- 주식 검색 -->
+        <div class="search-container">
+            <input type="text" id="stockSearch" placeholder="주식 검색 (예: 삼성전자, 005930)" class="search-input">
+            <button onclick="searchStock()" class="search-btn">검색</button>
+        </div>
+
         <!-- 실시간 주식 카드 -->
         <div class="stock-cards" id="stockCards">
             <!-- 주식 카드들이 여기에 동적으로 생성됩니다 -->
@@ -692,9 +743,8 @@
             }
 
             const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
-            const currencyClass = (stock.symbol === '005930.KS' || stock.symbol === '005380.KS') ? 'currency-krw' : 'currency-usd';
-            const priceFormat = (stock.symbol === '005930.KS' || stock.symbol === '005380.KS') ? 
-                `₩${stock.price.toLocaleString()}` : `$${stock.price.toLocaleString()}`;
+            const currencyClass = stock.symbol.endsWith('.KS') ? 'currency-krw' : 'currency-usd';
+            const priceFormat = formatPrice(stock.symbol, stock.price);
 
             card.innerHTML = `
                 <div class="stock-symbol">${displayName}</div>
@@ -806,6 +856,29 @@
         // 차트 관련 변수
         let currentChart = null;
 
+        // 가격 포맷팅 함수 (모든 한국 주식은 원화)
+        function formatPrice(symbol, price) {
+            if (symbol.endsWith('.KS')) {
+                return `₩${Math.round(price).toLocaleString()}`;
+            } else {
+                return `$${price.toFixed(2)}`;
+            }
+        }
+
+        // 주식 검색 함수
+        async function searchStock() {
+            const searchInput = document.getElementById('stockSearch');
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                alert('검색어를 입력하세요.');
+                return;
+            }
+            
+            // TODO: 백엔드에 검색 API 추가 필요
+            alert(`"${query}" 검색 기능은 곧 추가됩니다.`);
+        }
+
         // 차트 표시
         function showChart(stock) {
             const modal = document.getElementById('chartModal');
@@ -815,16 +888,20 @@
             const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
             title.textContent = `${displayName} 주식 차트`;
             
-            // 기존 차트 제거
+            // 기존 차트 완전히 제거
             if (currentChart) {
                 currentChart.destroy();
+                currentChart = null;
             }
+            
+            // 캔버스 초기화
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // 샘플 차트 데이터 생성 (실제로는 API에서 가져와야 함)
             const chartData = generateSampleChartData(stock);
             
             // Chart.js로 차트 생성
-            const ctx = canvas.getContext('2d');
             currentChart = new Chart(ctx, {
                 type: 'line',
                 data: {

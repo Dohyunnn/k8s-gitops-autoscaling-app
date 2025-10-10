@@ -1,0 +1,48 @@
+---
+# ArgoCD Image Updater ConfigMap
+# Docker Hub에서 새 이미지를 감지하고 자동으로 업데이트
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-image-updater-config
+  namespace: argocd
+data:
+  # 레지스트리 설정
+  registries.conf: |
+    registries:
+    - name: Docker Hub
+      prefix: docker.io
+      api_url: https://registry-1.docker.io
+      ping: yes
+      credentials: secret:argocd/dockerhub-secret
+      default: true
+  
+  # 로그 레벨 (debug, info, warn, error)
+  log.level: "info"
+  
+  # Git 커밋 정보
+  git.user: "argocd-image-updater"
+  git.email: "argocd-image-updater@noreply.localhost"
+  
+  # 이미지 업데이트 간격 (초)
+  interval: "2m"
+  
+  # ArgoCD API 접근 정보 (자동 감지)
+  argocd.server_addr: "argocd-server.argocd.svc.cluster.local"
+  argocd.insecure: "true"
+  argocd.plaintext: "true"
+
+---
+# ArgoCD Image Updater SSH 설정 (Git write-back용)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-image-updater-ssh-config
+  namespace: argocd
+data:
+  config: |
+    Host github.com
+      HostName github.com
+      IdentityFile ~/.ssh/id_rsa
+      StrictHostKeyChecking no
+

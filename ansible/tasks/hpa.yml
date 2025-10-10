@@ -1,0 +1,88 @@
+---
+# HPA (Horizontal Pod Autoscaler) 및 Metrics Server 설정
+# CPU/메모리 기반 자동 스케일링
+
+- name: Check if Metrics Server is already installed
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: metrics-server
+    namespace: kube-system
+  register: metrics_server_check
+
+- name: Download Metrics Server manifest
+  get_url:
+    url: https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    dest: /tmp/metrics-server.yaml
+    mode: '0644'
+  when: metrics_server_check.resources | length == 0
+
+- name: Install Metrics Server
+  kubernetes.core.k8s:
+    state: present
+    src: /tmp/metrics-server.yaml
+  when: metrics_server_check.resources | length == 0
+
+- name: Patch Metrics Server for insecure TLS (개발환경용)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: metrics-server
+        namespace: kube-system
+      spec:
+        template:
+          spec:
+            containers:
+            - name: metrics-server
+              args:
+                - --cert-dir=/tmp
+                - --secure-port=4443
+                - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+                - --kubelet-use-node-status-port
+                - --metric-resolution=15s
+                - --kubelet-insecure-tls  # 개발환경용
+  when: metrics_server_check.resources | length == 0
+
+- name: Wait for Metrics Server to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: metrics-server
+    namespace: kube-system
+  register: metrics_server
+  until: metrics_server.resources[0].status.readyReplicas | default(0) >= 1
+  retries: 30
+  delay: 10
+
+- name: Apply Backend HPA
+  kubernetes.core.k8s:
+    state: present
+    src: ../k8s/backend-hpa.yml
+
+- name: Apply Frontend HPA
+  kubernetes.core.k8s:
+    state: present
+    src: ../k8s/frontend-hpa.yml
+
+- name: Verify HPA status
+  kubernetes.core.k8s_info:
+    kind: HorizontalPodAutoscaler
+    namespace: default
+  register: hpa_status
+
+- name: Display HPA information
+  debug:
+    msg:
+      - "============================================"
+      - "HPA 설정 완료!"
+      - "============================================"
+      - "설치된 HPA:"
+      - "{{ hpa_status.resources | map(attribute='metadata.name') | list }}"
+      - ""
+      - "HPA 상태 확인:"
+      - "  kubectl get hpa"
+      - "  kubectl top nodes"
+      - "  kubectl top pods"
+      - "============================================"
+

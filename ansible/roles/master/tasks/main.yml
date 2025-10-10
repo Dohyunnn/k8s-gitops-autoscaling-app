@@ -1,0 +1,77 @@
+---
+# 1) kubeadm init 실행 (CRI 소켓 명시)
+- name: Initialize Kubernetes cluster
+  command: >
+    kubeadm init
+    --control-plane-endpoint {{ control_plane_endpoint }}
+    --cri-socket unix:///run/containerd/containerd.sock
+    {{ kubeadm_init_extra_args }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+  become: yes
+  register: kubeadm_init_output
+
+# 디버깅에 유용
+- name: Show kubeadm init stderr if failed
+  debug:
+    var: kubeadm_init_output.stderr_lines
+  when: kubeadm_init_output is failed
+
+# 2) kubeconfig 배포
+- name: Create .kube directory
+  file:
+    path: /home/dohyeon/.kube
+    state: directory
+    owner: dohyeon
+    group: dohyeon
+    mode: '0755'
+  become: yes
+
+- name: Copy admin.conf to user's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/dohyeon/.kube/config
+    owner: dohyeon
+    group: dohyeon
+    mode: '0644'
+    remote_src: yes
+  become: yes
+  when: kubeadm_init_output.rc == 0
+
+# 3) kubelet 가동 (init 후)
+- name: Start kubelet after init
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+  become: yes
+  when: kubeadm_init_output.rc == 0
+
+# 4) CNI 설치 (flannel)
+- name: Install Flannel CNI
+  command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+  become: yes
+  when: kubeadm_init_output.rc == 0
+
+# 5) 마스터 taint 제거(선택)
+- name: Untaint master node
+  command: kubectl --kubeconfig=/etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/control-plane-
+  become: yes
+  ignore_errors: yes
+  when: kubeadm_init_output.rc == 0
+
+# 6) 워커 조인 커맨드 확보(옵션)
+- name: Get join command
+  command: kubeadm token create --print-join-command
+  become: yes
+  register: join_command
+  when: kubeadm_init_output.rc == 0
+
+# (NEW) 워커가 사용할 수 있도록 join 명령을 팩트로 노출
+- name: Export join command as a fact for workers
+  set_fact:
+    kubeadm_join_cmd: "{{ join_command.stdout | trim }}"
+
+- name: Show join command
+  debug:
+    msg: "{{ kubeadm_join_cmd }}"

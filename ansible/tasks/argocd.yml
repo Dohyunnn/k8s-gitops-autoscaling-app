@@ -1,0 +1,152 @@
+---
+# ArgoCD 및 ArgoCD Image Updater 설치
+# GitOps 자동화를 위한 핵심 컴포넌트
+
+- name: Set kubeconfig environment
+  set_fact:
+    k8s_kubeconfig: "/home/dohyeon/.kube/config"
+
+- name: Create argocd namespace
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: argocd
+
+- name: Install ArgoCD
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    src: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    namespace: argocd
+  register: argocd_install
+
+- name: Wait for ArgoCD server to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-server
+    namespace: argocd
+    kubeconfig: "{{ k8s_kubeconfig }}"
+  register: argocd_server
+  until: argocd_server.resources[0].status.readyReplicas | default(0) >= 1
+  retries: 30
+  delay: 10
+
+- name: Patch ArgoCD server service to NodePort (외부 접근용)
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: argocd-server
+        namespace: argocd
+      spec:
+        type: NodePort
+        ports:
+          - name: http
+            port: 80
+            targetPort: 8080
+            nodePort: 30080
+          - name: https
+            port: 443
+            targetPort: 8080
+            nodePort: 30443
+
+- name: Get ArgoCD initial admin password
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: argocd-initial-admin-secret
+    namespace: argocd
+    kubeconfig: "{{ k8s_kubeconfig }}"
+  register: argocd_secret
+
+- name: Display ArgoCD admin password
+  debug:
+    msg: "ArgoCD admin password: {{ argocd_secret.resources[0].data.password | b64decode }}"
+  when: argocd_secret.resources | length > 0
+
+- name: Install ArgoCD Image Updater
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    src: https://raw.githubusercontent.com/argoproj-labs/argocd-image-updater/stable/manifests/install.yaml
+    namespace: argocd
+
+- name: Wait for ArgoCD Image Updater to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: argocd-image-updater
+    namespace: argocd
+    kubeconfig: "{{ k8s_kubeconfig }}"
+  register: image_updater
+  until: image_updater.resources[0].status.readyReplicas | default(0) >= 1
+  retries: 30
+  delay: 10
+
+- name: Create ArgoCD Image Updater ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-image-updater-config
+        namespace: argocd
+      data:
+        registries.conf: |
+          registries:
+          - name: Docker Hub
+            prefix: docker.io
+            api_url: https://registry-1.docker.io
+            ping: yes
+            credentials: secret:argocd/dockerhub-secret
+        log.level: debug
+
+- name: Create ArgoCD Image Updater Secret placeholder
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: dockerhub-secret
+        namespace: argocd
+      type: Opaque
+      stringData:
+        username: "YOUR_DOCKERHUB_USERNAME"
+        password: "YOUR_DOCKERHUB_TOKEN"
+  when: false  # 수동으로 설정 필요
+
+- name: Apply ArgoCD Applications from k8s directory
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "{{ k8s_kubeconfig }}"
+    src: "{{ item }}"
+    namespace: argocd
+  loop:
+    - ../k8s/argocd-application.yml
+  when: false  # Application 파일 생성 후 활성화
+
+- name: Display ArgoCD access information
+  debug:
+    msg:
+      - "============================================"
+      - "ArgoCD 설치 완료!"
+      - "============================================"
+      - "ArgoCD UI 접속: https://<MASTER_NODE_IP>:30443"
+      - "Username: admin"
+      - "Password: 위에서 확인한 admin password 사용"
+      - ""
+      - "다음 단계:"
+      - "1. ArgoCD UI에 로그인"
+      - "2. Docker Hub credentials 설정 (argocd/dockerhub-secret)"
+      - "3. ArgoCD Application 생성"
+      - "============================================"
+

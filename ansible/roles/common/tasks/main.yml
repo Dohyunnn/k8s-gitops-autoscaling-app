@@ -1,0 +1,174 @@
+---
+# 0) (선택) 클린업 태그: kubeadm reset (원클릭 복구용)
+- name: Reset Kubernetes (optional, run with -t reset)
+  command: kubeadm reset -f
+  become: yes
+  tags: [reset]
+  changed_when: true
+
+- name: Cleanup CNI and etcd (optional, run with -t reset)
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/cni/net.d
+    - /var/lib/cni
+    - /var/lib/etcd
+  become: yes
+  tags: [reset]
+
+# 1) 스왑 비활성화
+- name: Disable swap
+  shell: |
+    swapoff -a
+    sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+  args:
+    executable: /bin/bash
+  when: not swap_enabled
+  register: swapoff_result
+  changed_when: swapoff_result.rc == 0
+  become: yes
+
+# 2) 기본 패키지 (Docker 관련 제거)
+- name: Update apt and install prerequisites
+  apt:
+    update_cache: yes
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+  become: yes
+
+# 3) Docker 패키지 제거(혼선 방지)
+- name: Remove docker packages (avoid runtime confusion)
+  apt:
+    name:
+      - docker.io
+      - docker-buildx
+      - docker-compose
+    state: absent
+    purge: yes
+  become: yes
+
+# 4) containerd 설치
+- name: Install containerd
+  apt:
+    name: "{{ container_runtime }}"
+    state: present
+  register: containerd_install
+  become: yes
+
+# (NEW) 4-1) containerd 설정 디렉터리 보장
+- name: Create containerd config directory
+  file:
+    path: /etc/containerd
+    state: directory
+    mode: '0755'
+  become: yes
+
+# 5) containerd 설정 파일 배포
+- name: Configure containerd (toml)
+  template:
+    src: containerd-config.toml.j2
+    dest: /etc/containerd/config.toml
+    mode: '0644'
+  notify: Restart containerd
+  become: yes
+
+# 6) containerd 소켓 대기
+- name: Wait for containerd socket
+  stat:
+    path: /run/containerd/containerd.sock
+  register: containerd_sock
+  until: containerd_sock.stat.exists
+  retries: 20
+  delay: 2
+  become: yes
+
+# 7) crictl 엔드포인트 명시(경고 제거)
+- name: Configure crictl default endpoints
+  copy:
+    dest: /etc/crictl.yaml
+    mode: '0644'
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 10
+      debug: false
+  become: yes
+
+# 8) K8s APT 저장소
+- name: Add Kubernetes GPG key
+  shell: |
+    mkdir -p -m 755 /etc/apt/keyrings
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  become: yes
+
+- name: Add Kubernetes apt repository
+  shell: |
+    echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+  args:
+    creates: /etc/apt/sources.list.d/kubernetes.list
+  become: yes
+
+- name: Update apt package index
+  apt:
+    update_cache: yes
+  become: yes
+
+# 9) K8s 패키지 설치(핀 고정)
+- name: Install Kubernetes packages
+  apt:
+    name:
+      - kubelet={{ k8s_version }}.0-1.1
+      - kubeadm={{ k8s_version }}.0-1.1
+      - kubectl={{ k8s_version }}.0-1.1
+    state: present
+  become: yes
+
+- name: Hold Kubernetes packages
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+  become: yes
+
+# 10) kubelet은 enable만 하고, init 전에는 기동시키지 않음
+- name: Enable kubelet but keep it stopped until init
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: stopped
+  become: yes
+
+# 11) 커널 모듈 / sysctl
+- name: Load kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kernel_modules }}"
+  become: yes
+
+- name: Persist kernel modules
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: "{{ kernel_modules | join('\n') }}"
+    mode: '0644'
+  become: yes
+
+- name: Configure sysctl
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop: "{{ sysctl_settings }}"
+  become: yes
+

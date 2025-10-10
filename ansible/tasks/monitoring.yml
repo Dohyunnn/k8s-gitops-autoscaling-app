@@ -1,0 +1,67 @@
+---
+# Prometheus & Grafana 모니터링 스택 배포
+# 메트릭 수집 및 시각화
+
+- name: Create monitoring namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: monitoring
+
+- name: Deploy Prometheus
+  kubernetes.core.k8s:
+    state: present
+    src: ../monitoring/prometheus/prometheus-deployment.yml
+    namespace: monitoring
+
+- name: Wait for Prometheus to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: prometheus
+    namespace: monitoring
+  register: prometheus_status
+  until: prometheus_status.resources | length > 0 and prometheus_status.resources[0].status.readyReplicas | default(0) >= 1
+  retries: 30
+  delay: 10
+  ignore_errors: yes
+
+- name: Deploy Grafana
+  kubernetes.core.k8s:
+    state: present
+    src: ../monitoring/grafana/grafana-deployment.yml
+    namespace: monitoring
+
+- name: Wait for Grafana to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: grafana
+    namespace: monitoring
+  register: grafana_status
+  until: grafana_status.resources | length > 0 and grafana_status.resources[0].status.readyReplicas | default(0) >= 1
+  retries: 30
+  delay: 10
+  ignore_errors: yes
+
+- name: Get monitoring services
+  kubernetes.core.k8s_info:
+    kind: Service
+    namespace: monitoring
+  register: monitoring_services
+
+- name: Display monitoring access information
+  debug:
+    msg:
+      - "============================================"
+      - "모니터링 스택 배포 완료!"
+      - "============================================"
+      - "Prometheus: http://<MASTER_NODE_IP>:<PROMETHEUS_NODEPORT>"
+      - "Grafana: http://<MASTER_NODE_IP>:<GRAFANA_NODEPORT>"
+      - ""
+      - "서비스 확인:"
+      - "  kubectl get svc -n monitoring"
+      - "  kubectl get pods -n monitoring"
+      - "============================================"
+

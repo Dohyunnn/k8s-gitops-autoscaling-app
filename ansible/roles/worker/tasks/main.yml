@@ -1,0 +1,168 @@
+---
+# roles/worker/tasks/main.yml
+
+# 0) 사전 보증: containerd/kubelet 서비스/소켓, 커널 모듈, 스왑
+- name: Ensure required kernel modules are loaded (idempotent)
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+  become: yes
+
+- name: Ensure sysctl settings are present (defensive)
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: net.bridge.bridge-nf-call-iptables, value: 1 }
+    - { name: net.bridge.bridge-nf-call-ip6tables, value: 1 }
+    - { name: net.ipv4.ip_forward, value: 1 }
+  become: yes
+
+- name: Ensure swap is disabled (defensive)
+  shell: |
+    swapoff -a || true
+    sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+  args:
+    executable: /bin/bash
+  changed_when: false
+  become: yes
+
+- name: Ensure containerd service is running and enabled
+  systemd:
+    name: containerd
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+- name: Wait for containerd socket
+  wait_for:
+    path: /run/containerd/containerd.sock
+    state: present
+    timeout: 60
+
+- name: Ensure /etc/crictl.yaml exists and points to containerd
+  copy:
+    dest: /etc/crictl.yaml
+    mode: "0644"
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+      timeout: 10
+      debug: false
+  become: yes
+
+# kubeadm가 플래그 파일을 쓰기 전에 kubelet이 먼저 뜨면 실패하므로
+# kubelet은 enable만 되어 있고 일단 stop 상태 권장
+- name: Ensure kubelet is enabled but stopped (before join)
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: stopped
+  become: yes
+
+# 1) join 명령 확보 (마스터 호스트팩트에서)
+- name: Read join command from master hostvars
+  set_fact:
+    effective_join_cmd: "{{ hostvars[groups['masters'][0]].kubeadm_join_cmd | trim }}"
+
+- name: Fail early if join command is missing
+  fail:
+    msg: "kubeadm_join_cmd is missing from master hostvars"
+  when: effective_join_cmd | length == 0
+
+# 2) 조인 실행 (이미 조인된 노드면 skip)
+- name: Join worker to cluster (first attempt)
+  command: "{{ effective_join_cmd }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  become: yes
+  register: join_try1
+  failed_when: join_try1.rc not in [0] and 'The HTTP call equal to' not in (join_try1.stderr | default(''))
+
+# 3) kubelet healthz 대기 (성공 케이스/느린 케이스 모두 흡수)
+- name: Wait for kubelet healthz on 127.0.0.1:10248
+  uri:
+    url: http://127.0.0.1:10248/healthz
+    return_content: no
+    status_code: 200
+  register: kubelet_healthz
+  retries: 20
+  delay: 6
+  until: kubelet_healthz is succeeded
+  ignore_errors: yes
+
+# 4) 실패 시 자동 복구 루틴: 컨테이너런타임/큐블릿 재시작 → 한 번 더 조인 재시도
+- name: Recover kubelet/containerd and retry join when healthz failed
+  block:
+    - name: Restart containerd and kubelet
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+      loop:
+        - containerd
+        - kubelet
+      become: yes
+
+    - name: Wait for containerd socket after restart
+      wait_for:
+        path: /run/containerd/containerd.sock
+        state: present
+        timeout: 60
+
+    - name: Retry join (second attempt) if kubelet not healthy
+      command: "{{ effective_join_cmd }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+      become: yes
+      register: join_try2
+      failed_when: join_try2.rc not in [0] and 'The HTTP call equal to' not in (join_try2.stderr | default(''))
+
+    - name: Wait for kubelet healthz after retry
+      uri:
+        url: http://127.0.0.1:10248/healthz
+        return_content: no
+        status_code: 200
+      register: kubelet_healthz2
+      retries: 20
+      delay: 6
+      until: kubelet_healthz2 is succeeded
+  when: kubelet_healthz is failed
+  rescue:
+    - name: Mark recovery failed
+      set_fact:
+        worker_join_recovered: false
+
+# 5) 여전히 실패라면 진단 로그 수집해서 출력
+- name: Collect diagnose info if kubelet still unhealthy
+  block:
+    - name: kubelet status
+      command: systemctl status --no-pager kubelet
+      register: st_kubelet
+      ignore_errors: yes
+    - name: containerd status
+      command: systemctl status --no-pager containerd
+      register: st_containerd
+      ignore_errors: yes
+    - name: kubelet journal (last 200 lines)
+      command: journalctl -u kubelet -n 200 --no-pager
+      register: j_kubelet
+      ignore_errors: yes
+    - name: Show diagnostics
+      debug:
+        msg:
+          - "kubelet status:\n{{ st_kubelet.stdout | default(st_kubelet.stderr | default('')) }}"
+          - "containerd status:\n{{ st_containerd.stdout | default(st_containerd.stderr | default('')) }}"
+          - "kubelet journal:\n{{ j_kubelet.stdout | default(j_kubelet.stderr | default('')) }}"
+    - name: Fail since kubelet healthz never became healthy
+      fail:
+        msg: "Worker join failed: kubelet healthz not reachable on 127.0.0.1:10248"
+  when: kubelet_healthz is failed
+

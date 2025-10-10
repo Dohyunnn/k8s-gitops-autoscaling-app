@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: dorrry/k8s-gitops-app-frontend:00a546a
+        image: dorrry/k8s-gitops-app-frontend:8c984db
         ports:
         - containerPort: 3001
           name: http

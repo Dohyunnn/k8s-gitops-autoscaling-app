@@ -1,0 +1,28 @@
+---
+k8s_version: "1.31"
+
+# 클러스터/네트워크
+pod_network_cidr: "10.244.0.0/16"
+control_plane_endpoint: "192.168.200.30:6443"
+master_ip: "192.168.200.30"        # 마스터 실제 NIC IP
+
+# 런타임
+container_runtime: "containerd"
+containerd_config:
+  systemd_cgroup: true
+  sandbox_image: "registry.k8s.io/pause:3.10"  # containerd와 일치
+
+# kubeadm 추가 인자 (필수 옵션은 roles/master에서 합쳐줌)
+kubeadm_init_extra_args: "--pod-network-cidr={{ pod_network_cidr }} --apiserver-advertise-address={{ master_ip }}"
+
+swap_enabled: false
+
+sysctl_settings:
+  - { name: net.bridge.bridge-nf-call-iptables, value: 1 }
+  - { name: net.bridge.bridge-nf-call-ip6tables, value: 1 }
+  - { name: net.ipv4.ip_forward, value: 1 }
+
+kernel_modules:
+  - br_netfilter
+  - overlay
+

@@ -1,0 +1,14 @@
+---
+# Ansible Galaxy 컬렉션 의존성
+collections:
+  - name: kubernetes.core
+    version: ">=2.4.0"
+    source: https://galaxy.ansible.com
+  
+  - name: community.general
+    version: ">=7.0.0"
+    source: https://galaxy.ansible.com
+
+# Ansible Galaxy 롤 의존성 (필요시)
+roles: []
+

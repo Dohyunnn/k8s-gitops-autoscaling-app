@@ -1,0 +1,65 @@
+---
+# ArgoCD Application 정의
+# GitHub 리포지토리와 Kubernetes 클러스터를 연결
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-gitops-app
+  namespace: argocd
+  # Finalizer를 통해 Application 삭제 시 리소스도 함께 삭제
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # ArgoCD 프로젝트 (기본값)
+  project: default
+  
+  # Git 소스 정의
+  source:
+    # GitHub 리포지토리 URL 
+    repoURL: https://github.com/Dohyunnn/k8s-gitops-autoscaling-app.git
+    targetRevision: master  # 브랜치명
+    path: k8s  # 매니페스트가 있는 경로
+    
+    # Helm이나 Kustomize를 사용하지 않는 경우 (순수 YAML)
+    directory:
+      recurse: true
+      # ArgoCD Application 자체는 제외 (무한 루프 방지)
+      exclude: "argocd-*.yml"
+  
+  # 배포 대상 클러스터 정의
+  destination:
+    # 현재 클러스터 (ArgoCD가 설치된 클러스터)
+    server: https://kubernetes.default.svc
+    # 배포할 네임스페이스
+    namespace: default
+  
+  # 동기화 정책
+  syncPolicy:
+    # 자동 동기화 활성화
+    automated:
+      # Git과 클러스터 상태가 다를 때 자동으로 동기화
+      prune: true  # Git에서 삭제된 리소스를 클러스터에서도 삭제
+      selfHeal: true  # 수동 변경사항을 자동으로 되돌림
+      allowEmpty: false
+    
+    # 동기화 옵션
+    syncOptions:
+      - CreateNamespace=true  # 네임스페이스가 없으면 자동 생성
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
+    # 재시도 정책
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  # 무시할 차이점 정의 (노이즈 제거)
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # HPA가 관리하므로 무시
+

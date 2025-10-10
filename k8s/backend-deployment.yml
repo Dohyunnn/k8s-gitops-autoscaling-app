@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: dorrry/k8s-gitops-app-backend:5c78041
+        image: dorrry/k8s-gitops-app-backend:af79d3a
         ports:
         - containerPort: 8081
           name: http

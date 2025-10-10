@@ -78,6 +78,9 @@ jobs:
         else
           git add k8s/backend-deployment.yml
           git commit -m "Auto-deploy backend: Update image to $IMAGE_SHA [skip ci]"
+          
+          # 원격 변경사항 먼저 가져오기
+          git pull origin master --rebase
           git push origin master
           echo "Backend deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
         fi

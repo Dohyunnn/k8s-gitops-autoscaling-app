@@ -28,7 +28,7 @@ spec:
         db: "true"
       containers:
       - name: backend
-        image: dorrry/k8s-gitops-app-backend:535c519
+        image: dorrry/k8s-gitops-app-backend:627f2de
         ports:
         - containerPort: 8081
           name: http

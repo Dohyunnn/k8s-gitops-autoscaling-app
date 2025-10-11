@@ -6,6 +6,14 @@ kind: Application
 metadata:
   name: k8s-gitops-app
   namespace: argocd
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: backend=dorrry/k8s-gitops-app-backend,frontend=dorrry/k8s-gitops-app-frontend
+    argocd-image-updater.argoproj.io/backend.update-strategy: latest
+    argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9a-f]{7}$
+    argocd-image-updater.argoproj.io/frontend.update-strategy: latest
+    argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9a-f]{7}$
+    argocd-image-updater.argoproj.io/write-back-method: kubernetes
+    argocd-image-updater.argoproj.io/git-branch: master
   # Finalizer를 통해 Application 삭제 시 리소스도 함께 삭제
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -19,12 +27,7 @@ spec:
     repoURL: https://github.com/Dohyunnn/k8s-gitops-autoscaling-app.git
     targetRevision: master  # 브랜치명
     path: k8s  # 매니페스트가 있는 경로
-    
-    # Helm이나 Kustomize를 사용하지 않는 경우 (순수 YAML)
-    directory:
-      recurse: true
-      # ArgoCD Application 자체는 제외 (무한 루프 방지)
-      exclude: "argocd-*.yml"
+    kustomize: {}
   
   # 배포 대상 클러스터 정의
   destination:
@@ -62,4 +65,3 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas  # HPA가 관리하므로 무시
-

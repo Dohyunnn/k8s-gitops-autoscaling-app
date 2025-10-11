@@ -8,15 +8,11 @@ on:
     paths:
       - 'frontend/**'   # 프론트엔드 코드 변경 시 실행
       - 'shared/**'     # 공통 코드 변경 시 실행
-      - '.github/workflows/frontend-ci.yml' # 이 워크플로우 파일 변경 시 실행
-      - 'k8s/**'
   pull_request:
     branches: [ master ]
     paths:
       - 'frontend/**'
       - 'shared/**'
-      - '.github/workflows/frontend-ci.yml' # 이 워크플로우 파일 변경 시 실행
-      - 'k8s/**'
 env:
   DOCKER_IMAGE: dorrry/k8s-gitops-app-frontend
   

@@ -21,6 +21,8 @@ spec:
       labels:
         app: frontend
     spec:
+      imagePullSecrets:
+      - name: dockerhub-pull-secret
       nodeSelector:
         role: frontend
       containers:

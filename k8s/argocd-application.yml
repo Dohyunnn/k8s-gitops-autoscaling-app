@@ -65,3 +65,4 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas  # HPA가 관리하므로 무시
+        - /spec/template/spec/containers/0/image  # Image Updater가 관리하므로 무시

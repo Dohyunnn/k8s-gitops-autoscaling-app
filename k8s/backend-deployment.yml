@@ -23,6 +23,8 @@ spec:
       labels:
         app: backend
     spec:
+      imagePullSecrets:
+      - name: dockerhub-pull-secret
       nodeSelector:
         role: backend
         db: "true"

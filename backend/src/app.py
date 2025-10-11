@@ -16,7 +16,8 @@ app = Flask(__name__)
 traffic_simulation_active = False  # 시뮬레이션 활성화 여부
 current_traffic_level = 'normal'   # 현재 트래픽 레벨 (high/medium/low/normal)
 simulation_thread = None           # 시뮬레이션 스레드
-auto_mode_enabled = True           # 자동 모드 활성화 여부
+SIMULATION_ENABLED = os.getenv('SIMULATION_ENABLED', 'true').lower() == 'true'
+auto_mode_enabled = SIMULATION_ENABLED  # 자동 모드 활성화 여부
 emergency_mode = False             # 긴급 상황 모드 여부
 
 # 주식 데이터 관리 - 국내 주식 12개
@@ -114,7 +115,12 @@ def health():
 # 트래픽 시뮬레이션 시작 API -프론트엔드에서 호출하여 HPA 테스트용 트래픽 생성
 @app.route('/api/simulate-traffic', methods=['POST'])
 def simulate_traffic_endpoint():
-   
+    if not SIMULATION_ENABLED:
+        return jsonify({
+            'success': False,
+            'message': '트래픽 시뮬레이션이 비활성화된 상태입니다 (SIMULATION_ENABLED=false).'
+        }), 503
+
     global traffic_simulation_active, current_traffic_level, simulation_thread
     
     data = request.get_json()
@@ -144,6 +150,13 @@ def simulate_traffic_endpoint():
 # 트래픽 시뮬레이션 중지 API
 @app.route('/api/stop-simulation', methods=['POST'])
 def stop_simulation():
+    if not SIMULATION_ENABLED:
+        return jsonify({
+            'success': True,
+            'message': '트래픽 시뮬레이션이 비활성화된 상태입니다.',
+            'timestamp': datetime.now().isoformat()
+        })
+
     global traffic_simulation_active, simulation_thread, emergency_mode
     
     traffic_simulation_active = False
@@ -160,6 +173,13 @@ def stop_simulation():
 # 긴급 상황 시뮬레이션 API
 @app.route('/api/emergency-simulation', methods=['POST'])
 def emergency_simulation():
+    if not SIMULATION_ENABLED:
+        return jsonify({
+            'success': False,
+            'message': '긴급 시뮬레이션 기능이 비활성화된 상태입니다 (SIMULATION_ENABLED=false).',
+            'timestamp': datetime.now().isoformat()
+        }), 503
+
     global traffic_simulation_active, current_traffic_level, simulation_thread, emergency_mode, auto_mode_enabled
     
     data = request.get_json()
@@ -205,6 +225,13 @@ def emergency_simulation():
 # 자동 모드 토글 API
 @app.route('/api/toggle-auto-mode', methods=['POST'])
 def toggle_auto_mode():
+    if not SIMULATION_ENABLED:
+        return jsonify({
+            'success': False,
+            'message': '자동 모드 토글이 비활성화된 상태입니다 (SIMULATION_ENABLED=false).',
+            'timestamp': datetime.now().isoformat()
+        }), 503
+
     global auto_mode_enabled, emergency_mode, traffic_simulation_active, simulation_thread
     
     auto_mode_enabled = not auto_mode_enabled
@@ -234,10 +261,10 @@ def get_simulation_status():
     return jsonify({
         'active': traffic_simulation_active,
         'traffic_level': current_traffic_level,
-        'auto_mode_enabled': auto_mode_enabled,
+        'auto_mode_enabled': auto_mode_enabled and SIMULATION_ENABLED,
         'emergency_mode': emergency_mode,
         'current_time': datetime.now().strftime('%H:%M:%S'),
-        'auto_traffic_level': get_auto_traffic_level() if auto_mode_enabled else None,
+        'auto_traffic_level': get_auto_traffic_level() if auto_mode_enabled and SIMULATION_ENABLED else None,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -433,11 +460,13 @@ if __name__ == '__main__':
     print("HPA 테스트를 위한 트래픽 시뮬레이션 기능 포함")
     
     # 자동 모드로 트래픽 시뮬레이션 시작
-    print("\n자동 트래픽 모드 시작 (시간 기반)")
-    traffic_simulation_active = True
-    simulation_thread = threading.Thread(target=simulate_traffic)
-    simulation_thread.daemon = True
-    simulation_thread.start()
+    if SIMULATION_ENABLED:
+        print("\n자동 트래픽 모드 시작 (시간 기반)")
+        traffic_simulation_active = True
+        simulation_thread = threading.Thread(target=simulate_traffic)
+        simulation_thread.daemon = True
+        simulation_thread.start()
+    else:
+        print("\n자동 트래픽 시뮬레이션이 비활성화되어 시작되지 않습니다 (SIMULATION_ENABLED=false).")
     
     app.run(host='0.0.0.0', port=8081, debug=True)
-

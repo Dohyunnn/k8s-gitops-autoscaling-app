@@ -23,6 +23,9 @@ spec:
       labels:
         app: backend
     spec:
+      nodeSelector:
+        role: backend
+        db: "true"
       containers:
       - name: backend
         image: dorrry/k8s-gitops-app-backend:535c519
@@ -55,3 +58,5 @@ spec:
         env:
         - name: FLASK_ENV
           value: "production"
+        - name: SIMULATION_ENABLED
+          value: "false"

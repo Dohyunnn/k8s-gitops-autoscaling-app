@@ -1,5 +1,5 @@
 # Frontend Node.js Express
-FROM node:18-alpine
+FROM mirror.gcr.io/library/node:18-alpine
 
 WORKDIR /app
 

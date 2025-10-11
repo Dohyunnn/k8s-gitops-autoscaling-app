@@ -61,26 +61,3 @@ jobs:
     - name: Image digest
       run: echo "${{ steps.meta.outputs.tags }}"
       
-    - name: Update frontend deployment image tag
-      if: github.ref == 'refs/heads/master'
-      run: |
-        # Git 설정
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # 이미지 태그 추출 및 업데이트
-        IMAGE_SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep -o '[a-f0-9]\{7\}' | head -1)
-        sed -i "s|image: .*|image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA|g" k8s/frontend-deployment.yml
-        
-        # 변경사항 확인 후 커밋
-        if git diff --quiet; then
-          echo "No changes to commit"
-        else
-          git add k8s/frontend-deployment.yml
-          git commit -m "Auto-deploy frontend: Update image to $IMAGE_SHA [skip ci]"
-          
-          # 원격 변경사항 먼저 가져오기
-          git pull origin master --rebase
-          git push origin master
-          echo "Frontend deployment updated with image: ${{ env.DOCKER_IMAGE }}:$IMAGE_SHA"
-        fi

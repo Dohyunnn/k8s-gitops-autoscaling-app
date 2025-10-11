@@ -36,9 +36,11 @@ spec:
           requests:
             cpu: 100m      # 최소 CPU 요청량
             memory: 128Mi   # 최소 메모리 요청량
+            ephemeral-storage: 100Mi  # 컨테이너 임시 디스크 요청량
           limits:
             cpu: 1000m      # 최대 CPU 사용량 (HPA 트리거용)
             memory: 512Mi   # 최대 메모리 사용량
+            ephemeral-storage: 512Mi  # 임시 디스크 제한
         livenessProbe:      # Pod 생존 확인
           httpGet:
             path: /api/health

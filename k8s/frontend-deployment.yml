@@ -21,6 +21,8 @@ spec:
       labels:
         app: frontend
     spec:
+      nodeSelector:
+        role: frontend
       containers:
       - name: frontend
         image: dorrry/k8s-gitops-app-frontend:627f2de
@@ -31,9 +33,11 @@ spec:
           requests:
             cpu: 50m
             memory: 64Mi
+            ephemeral-storage: 50Mi
           limits:
             cpu: 500m
             memory: 256Mi
+            ephemeral-storage: 256Mi
         livenessProbe:
           httpGet:
             path: /api/health

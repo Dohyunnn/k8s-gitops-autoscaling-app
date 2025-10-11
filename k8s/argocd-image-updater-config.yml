@@ -26,7 +26,7 @@ data:
   git.email: "argocd-image-updater@noreply.localhost"
   
   # 이미지 업데이트 간격 (2분마다 체크 - Rate Limit 주의)
-  interval: "2m"
+  interval: "10m"
   
   # ArgoCD API 접근 정보 (자동 감지)
   argocd.server_addr: "argocd-server.argocd.svc.cluster.local"

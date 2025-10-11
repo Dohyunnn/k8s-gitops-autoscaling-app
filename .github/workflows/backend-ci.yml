@@ -57,6 +57,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
         cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+        # Buildx가 베이스 이미지를 pull할 때도 인증 사용
+        provenance: false
         
     - name: Image digest
       run: echo "${{ steps.meta.outputs.tags }}"

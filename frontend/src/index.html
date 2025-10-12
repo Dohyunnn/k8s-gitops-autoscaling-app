@@ -186,30 +186,6 @@
         .stock-change.neutral {
             color: #9e9e9e;
         }
-        .traffic-indicator {
-            font-size: 12px;
-            margin-top: 8px;
-            padding: 4px 8px;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.3);
-        }
-        .traffic-indicator.high {
-            background: rgba(244, 67, 54, 0.3);
-            color: #f44336;
-        }
-        .traffic-indicator.medium {
-            background: rgba(255, 152, 0, 0.3);
-            color: #ff9800;
-        }
-        .traffic-indicator.low {
-            background: rgba(76, 175, 80, 0.3);
-            color: #4CAF50;
-        }
-        .traffic-indicator.normal {
-            background: rgba(158, 158, 158, 0.3);
-            color: #9e9e9e;
-        }
-        
         /* 트래픽 로그 스타일 */
         .traffic-log {
             background: rgba(0, 0, 0, 0.3);
@@ -453,11 +429,11 @@
         </div>
 
             <div class="card">
-                <h3>시스템 상태</h3>
-                <div id="systemStatus">
-                    <div>백엔드: <span id="backendStatus" class="loading"></span></div>
-                    <div>연결 상태: <span id="connectionStatus">확인 중...</span></div>
+                <h3>트래픽 상태</h3>
+                <div id="trafficStatus">
                     <div>트래픽 레벨: <span id="trafficLevel" class="off">기본</span></div>
+                    <div>트래픽 상태: <span id="trafficState" class="status-message off">정상 상태입니다.</span></div>
+                    <div>트래픽 요청 수: <span id="trafficRequest">약간의 요청</span></div>
                 </div>
             </div>
 
@@ -504,6 +480,13 @@
             low: '낮음',
             medium: '중간',
             high: '높음'
+        };
+
+        const TRAFFIC_REQUEST_SUMMARY = {
+            off: '약간의 요청 (Pod 2-3개)',
+            low: '낮은 요청 (Pod 2개)',
+            medium: '중간 요청 (Pod 6-10개)',
+            high: '높은 요청 (Pod 12-15개)'
         };
 
         // 시장 상태 확인
@@ -571,26 +554,53 @@
                 .then(response => response.json())
                 .then(data => {
                     const statusElement = document.getElementById('currentStatus');
+                    const trafficStateElement = document.getElementById('trafficState');
+                    const trafficRequestElement = document.getElementById('trafficRequest');
+
                     if (!statusElement) {
                         return;
                     }
 
                     const level = (data.traffic_level || 'off').toLowerCase();
-                    const isActive = Boolean(data.active) && level !== 'off';
-                    const normalizedLevel = isActive ? level : 'off';
+                    const normalizedLevel = level === 'off' ? 'off' : level;
                     const message = TRAFFIC_STATUS_MESSAGES[normalizedLevel] || TRAFFIC_STATUS_MESSAGES.off;
 
                     statusElement.textContent = message;
                     statusElement.className = `status-message ${normalizedLevel}`;
+
+                    if (trafficStateElement) {
+                        trafficStateElement.textContent = message;
+                        trafficStateElement.className = `status-message ${normalizedLevel}`;
+                    }
+
+                    if (trafficRequestElement) {
+                        trafficRequestElement.textContent = TRAFFIC_REQUEST_SUMMARY[normalizedLevel] || TRAFFIC_REQUEST_SUMMARY.off;
+                    }
+
                     updateTrafficLevel(normalizedLevel);
                 })
                 .catch(error => {
                     console.error('상태 업데이트 오류:', error);
                     const statusElement = document.getElementById('currentStatus');
+                    const trafficStateElement = document.getElementById('trafficState');
+                    const trafficRequestElement = document.getElementById('trafficRequest');
+
+                    const errorMessage = '상태 확인 중 오류가 발생했습니다.';
+
                     if (statusElement) {
-                        statusElement.textContent = '상태 확인 중 오류가 발생했습니다.';
+                        statusElement.textContent = errorMessage;
                         statusElement.className = 'status-message high';
                     }
+
+                    if (trafficStateElement) {
+                        trafficStateElement.textContent = errorMessage;
+                        trafficStateElement.className = 'status-message high';
+                    }
+
+                    if (trafficRequestElement) {
+                        trafficRequestElement.textContent = '요청량 정보를 가져오지 못했습니다.';
+                    }
+
                     updateTrafficLevel('off');
                 });
         }
@@ -665,14 +675,6 @@
                                stock.change_percent < 0 ? 'negative' : 'neutral';
             
             const changeSymbol = stock.change_percent > 0 ? '+' : '';
-            
-            // 트래픽 레벨에 따른 표시
-            let trafficLevel = 'normal';
-            if (Math.abs(stock.change_percent) > 10) {
-                trafficLevel = 'high';
-            } else if (Math.abs(stock.change_percent) > 5) {
-                trafficLevel = 'medium';
-            }
 
             const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
             const currencyClass = stock.symbol.length === 6 && /^\d+$/.test(stock.symbol) ? 'currency-krw' : 'currency-usd';
@@ -684,9 +686,6 @@
                 <div class="stock-price ${currencyClass}">${priceFormat}</div>
                 <div class="stock-change ${changeClass}">
                     ${changeSymbol}${stock.change_percent.toFixed(2)}%
-                </div>
-                <div class="traffic-indicator ${trafficLevel}">
-                    트래픽 ${trafficLevel}
                 </div>
             `;
 
@@ -749,44 +748,6 @@
                 trafficLog.removeChild(trafficLog.lastChild);
             }
         }
-
-        // 시스템 상태 확인
-        function checkSystemStatus() {
-            fetch('/api/health')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('HTTP ' + response.status);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('헬스체크 응답:', data);
-                    
-                    // 백엔드 상태 확인
-                    const backendStatusElement = document.getElementById('backendStatus');
-                    const connectionStatusElement = document.getElementById('connectionStatus');
-                    
-                    if (data.backend && data.backend.status === 'ok') {
-                        backendStatusElement.textContent = '정상';
-                        backendStatusElement.className = '';  // loading 클래스 제거
-                        connectionStatusElement.textContent = '연결됨';
-                    } else {
-                        backendStatusElement.textContent = '부분 오류';
-                        backendStatusElement.className = '';  // loading 클래스 제거
-                        connectionStatusElement.textContent = '백엔드 연결 실패';
-                    }
-                })
-                .catch(error => {
-                    console.error('헬스체크 오류:', error);
-                    const backendStatusElement = document.getElementById('backendStatus');
-                    const connectionStatusElement = document.getElementById('connectionStatus');
-                    
-                    backendStatusElement.textContent = '오류';
-                    backendStatusElement.className = '';  // loading 클래스 제거
-                    connectionStatusElement.textContent = '연결 실패';
-                });
-        }
-
         // 차트 관련 변수
         let currentChart = null;
 
@@ -930,13 +891,11 @@
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
             checkMarketStatus();
-            checkSystemStatus();
             loadStockData();
             updateStatusDisplay();
             
             // 1분마다 상태 업데이트
             setInterval(checkMarketStatus, 60000);
-            setInterval(checkSystemStatus, 30000);
             
             // 30초마다 주식 데이터 업데이트
             setInterval(loadStockData, 30000);

@@ -32,7 +32,7 @@ spec:
         resources:
           requests:
             cpu: 100m      # 최소 CPU 요청량
-            memory: 128Mi   # 최소 메모리 요청량
+            memory: 256Mi   # 최소 메모리 요청량 (HPA 스케일링 최적화)
             ephemeral-storage: 100Mi  # 컨테이너 임시 디스크 요청량
           limits:
             cpu: 1000m      # 최대 CPU 사용량 (HPA 트리거용)

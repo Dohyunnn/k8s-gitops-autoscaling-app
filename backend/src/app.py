@@ -125,12 +125,13 @@ def get_auto_traffic_level():
     else:  # 야간 시간 (18:00-09:00)
         return 'low'
 
-# 긴급 상황별 트래픽 레벨
+# 긴급 상황별 트래픽 레벨 (3단계)
 emergency_traffic_levels = {
-    'emergency_news': 'high',      # 긴급 뉴스: 높은 트래픽
-    'massive_trading': 'medium',   # 대량 거래: 중간 트래픽
-    'system_error': 'low'          # 시스템 오류: 낮은 트래픽
+    'system_error': 'minimal',      # 시스템 오류: 최소 트래픽 (Pod 1-2개)
+    'massive_trading': 'medium',    # 대량 거래: 중간 트래픽 (Pod 6-10개)
+    'emergency_news': 'high'        # 긴급 뉴스: 높은 트래픽 (Pod 12-15개)
 }
+# 일반 상태(low): 시뮬레이션이 OFF일 때의 기본 상태 (Pod 2-3개)
 
 # 트래픽 시뮬레이션 함수 -HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
 def simulate_traffic():
@@ -141,24 +142,29 @@ def simulate_traffic():
         if auto_mode_enabled and not emergency_mode:
             current_traffic_level = get_auto_traffic_level()
         
-        if current_traffic_level == 'high':
-            # 높은 트래픽 (1000+ 요청/분)
-            for _ in range(100):
-                # CPU 집약적 작업으로 HPA 트리거 유도
-                sum(range(1000))
-            time.sleep(0.1)  # 100ms 간격으로 빠른 반복
-            
-        elif current_traffic_level == 'medium':
-            # 중간 트래픽 (100 요청/분)
-            for _ in range(50):
-                sum(range(500))
-            time.sleep(0.2)  # 200ms 간격
+        if current_traffic_level == 'minimal':
+            # 최소 트래픽 (시스템 오류) - Pod 1-2개 목표
+            for _ in range(5):
+                sum(range(50))
+            time.sleep(2.0)  # 2초 간격으로 매우 느린 반복
             
         elif current_traffic_level == 'low':
-            # 낮은 트래픽 (10 요청/분)
-            for _ in range(10):
-                sum(range(100))
-            time.sleep(1.0)  # 1초 간격으로 느린 반복
+            # 낮은 트래픽 (일반 모드) - Pod 2-4개 목표
+            for _ in range(15):
+                sum(range(150))
+            time.sleep(0.8)  # 800ms 간격
+            
+        elif current_traffic_level == 'medium':
+            # 중간 트래픽 (대량 거래) - Pod 6-10개 목표
+            for _ in range(80):
+                sum(range(800))
+            time.sleep(0.15)  # 150ms 간격
+            
+        elif current_traffic_level == 'high':
+            # 높은 트래픽 (긴급 뉴스) - Pod 12-15개 목표
+            for _ in range(150):
+                sum(range(2000))
+            time.sleep(0.05)  # 50ms 간격으로 매우 빠른 반복
         
         else:
             # 기본 상태: 대기

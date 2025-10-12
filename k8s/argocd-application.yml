@@ -8,10 +8,12 @@ metadata:
   namespace: argocd
   annotations:
     argocd-image-updater.argoproj.io/image-list: backend=dorrry/k8s-gitops-app-backend,frontend=dorrry/k8s-gitops-app-frontend
-    argocd-image-updater.argoproj.io/backend.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/backend.update-strategy: digest
     argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9a-f]{7}$
-    argocd-image-updater.argoproj.io/frontend.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/backend.pull-secret: pullsecret:default/dockerhub-pull-secret
+    argocd-image-updater.argoproj.io/frontend.update-strategy: digest
     argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9a-f]{7}$
+    argocd-image-updater.argoproj.io/frontend.pull-secret: pullsecret:default/dockerhub-pull-secret
     argocd-image-updater.argoproj.io/write-back-method: kubernetes
     argocd-image-updater.argoproj.io/git-branch: master
   # Finalizer를 통해 Application 삭제 시 리소스도 함께 삭제

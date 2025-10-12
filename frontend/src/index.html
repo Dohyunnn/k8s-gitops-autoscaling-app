@@ -294,18 +294,18 @@
 
         /* 긴급 상황 시뮬레이션 스타일 */
         .emergency-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
         }
 
         .emergency-btn-large {
-            padding: 18px 24px;
+            padding: 14px 20px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             transition: all 0.3s ease;
             color: white;
@@ -322,17 +322,17 @@
             transform: translateY(0);
         }
 
-        .btn-news {
-            background: #ff8c42;  /* 주황 */
+        .btn-error {
+            background: #ecc94b;  /* 노랑 - 최소 트래픽 */
+            color: #2d3748;
         }
 
         .btn-trading {
-            background: #56e491;  /* 초록 */
+            background: #48bb78;  /* 초록 - 중간 트래픽 */
         }
 
-        .btn-error {
-            background: #ecc94b;  /* 노랑 */
-            color: #2d3748;  /* 노랑은 텍스트를 어둡게 */
+        .btn-news {
+            background: #f56565;  /* 빨강 - 높은 트래픽 */
         }
 
         /* 작은 자동 모드 토글 */
@@ -410,23 +410,32 @@
         }
 
         .simulation-controls {
-            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
         }
 
         .stop-btn {
-            background: linear-gradient(135deg, #ff4757, #c44569);
+            background: linear-gradient(135deg, #718096, #4a5568);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 14px 20px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 15px;
             font-weight: bold;
             transition: all 0.3s ease;
+            width: 100%;
         }
 
         .stop-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            filter: brightness(0.85);
+        }
+
+        .stop-btn:active {
+            transform: translateY(0);
         }
 
         .status-display {
@@ -485,19 +494,22 @@
             </div>
 
             <div class="card">
-                <h3>긴급 상황 시뮬레이션</h3>
+                <h3>트래픽 시뮬레이션</h3>
                 
-                <!-- 긴급 상황 버튼들 -->
+                <!-- 트래픽 레벨 버튼들 (3개) -->
                 <div class="emergency-controls">
-                    <button onclick="triggerEmergency('emergency_news')" class="emergency-btn-large btn-news">긴급 뉴스</button>
-                    <button onclick="triggerEmergency('massive_trading')" class="emergency-btn-large btn-trading">대량 거래</button>
-                    <button onclick="triggerEmergency('system_error')" class="emergency-btn-large btn-error">시스템 오류</button>
+                    <button onclick="triggerEmergency('system_error')" class="emergency-btn-large btn-error" title="최소 트래픽 (Pod 1-2개)">시스템 오류</button>
+                    <button onclick="triggerEmergency('massive_trading')" class="emergency-btn-large btn-trading" title="중간 트래픽 (Pod 6-10개)">대량 거래</button>
+                    <button onclick="triggerEmergency('emergency_news')" class="emergency-btn-large btn-news" title="높은 트래픽 (Pod 12-15개)">긴급 뉴스</button>
                 </div>
                 
                 <!-- 시뮬레이션 제어 -->
                 <div class="simulation-controls">
                     <button onclick="stopSimulation()" class="stop-btn">시뮬레이션 중지</button>
                 </div>
+                <p style="font-size: 13px; color: #a0aec0; margin-top: 5px;">
+                    💡 시뮬레이션 중지 시 기본 상태(일반)로 돌아갑니다
+                </p>
             </div>
 
             <div class="card">

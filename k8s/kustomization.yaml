@@ -1,10 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 resources:
   - backend-deployment.yml
-  - backend-hpa.yml
   - backend-service.yml
+  - backend-hpa.yml
   - frontend-deployment.yml
-  - frontend-hpa.yml
   - frontend-service.yml
+  - frontend-hpa.yml
   - ingress.yml
+  - metallb-config.yml
+
+images:
+  - name: dorrry/k8s-gitops-app-backend
+    newTag: 627f2de
+  - name: dorrry/k8s-gitops-app-frontend
+    newTag: 627f2de

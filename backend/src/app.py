@@ -143,10 +143,10 @@ def simulate_traffic():
             current_traffic_level = get_auto_traffic_level()
         
         if current_traffic_level == 'minimal':
-            # 최소 트래픽 (시스템 오류) - Pod 1-2개 목표
-            for _ in range(5):
-                sum(range(50))
-            time.sleep(2.0)  # 2초 간격으로 매우 느린 반복
+            # 최소 트래픽 (시스템 오류) - Pod 2개 유지 (최소값)
+            for _ in range(2):
+                sum(range(20))
+            time.sleep(3.0)  # 3초 간격으로 매우 느린 반복 (CPU 5% 미만)
             
         elif current_traffic_level == 'low':
             # 낮은 트래픽 (일반 모드) - Pod 2-4개 목표

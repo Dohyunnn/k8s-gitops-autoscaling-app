@@ -99,9 +99,14 @@ class KISAPIClient:
             response.raise_for_status()
             
             data = response.json()
-            if 'output' in data and len(data['output']) > 0:
-                stock_info = data['output'][0]
-                return float(stock_info['stck_prpr'])  # 현재가
+            print(f"KIS API 응답 ({symbol}): {data}")  # 디버깅용
+            
+            if 'output' in data:
+                stock_info = data['output']
+                # 현재가는 stck_prpr 필드에 있음
+                price = stock_info.get('stck_prpr', None)
+                if price:
+                    return float(price)
             return None
             
         except requests.exceptions.RequestException as e:

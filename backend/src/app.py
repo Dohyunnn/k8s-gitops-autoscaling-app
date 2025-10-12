@@ -1,6 +1,6 @@
 # 주식 모니터링 백엔드 API
 # 한국투자증권 KIS API를 사용한  Flask 서버
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g, Response
 import socket
 import time
 import threading
@@ -8,8 +8,44 @@ import random
 import requests
 import os
 from datetime import datetime, timedelta
+from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
+
+
+@app.before_request
+def start_timer():
+    """요청 시작 시각을 기록하여 응답 지연을 산출"""
+    if request.path == '/metrics':
+        return
+    g.request_start_time = time.time()
+
+
+@app.after_request
+def record_request_metrics(response):
+    """요청 건수 및 응답 시간을 Prometheus 메트릭으로 저장"""
+    if request.path != '/metrics':
+        elapsed = time.time() - getattr(g, 'request_start_time', time.time())
+        endpoint = request.endpoint or request.path or 'unknown'
+        REQUEST_LATENCY.labels(endpoint=endpoint).observe(elapsed)
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status=response.status_code
+        ).inc()
+    return response
+
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus가 스크랩할 메트릭 엔드포인트"""
+    SIMULATION_ACTIVE_GAUGE.set(1 if traffic_simulation_active else 0)
+    EMERGENCY_MODE_GAUGE.set(1 if emergency_mode else 0)
+    CURRENT_TRAFFIC_LEVEL_GAUGE.set(
+        TRAFFIC_LEVEL_MAPPING.get(current_traffic_level, 0)
+    )
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
 
 # 전역 변수 - 트래픽 시뮬레이션 상태 관리
 traffic_simulation_active = False      # 긴급/수동 시뮬레이션 활성화 여부
@@ -41,6 +77,37 @@ stock_symbols = {
     '035720': '카카오'
 }
 previous_prices = {}  # 이전 가격 저장
+
+# Prometheus 메트릭
+REQUEST_COUNT = Counter(
+    'backend_http_requests_total',
+    'Total number of HTTP requests processed by the backend service',
+    ['method', 'endpoint', 'status']
+)
+REQUEST_LATENCY = Histogram(
+    'backend_http_request_latency_seconds',
+    'Latency of HTTP requests processed by the backend service',
+    ['endpoint']
+)
+SIMULATION_ACTIVE_GAUGE = Gauge(
+    'backend_traffic_simulation_active',
+    'Whether traffic simulation is active (1=active, 0=inactive)'
+)
+EMERGENCY_MODE_GAUGE = Gauge(
+    'backend_traffic_emergency_mode',
+    'Whether emergency mode is active (1=active, 0=inactive)'
+)
+CURRENT_TRAFFIC_LEVEL_GAUGE = Gauge(
+    'backend_current_traffic_level',
+    'Current traffic level encoded as 0=off, 1=low, 2=medium, 3=high'
+)
+
+TRAFFIC_LEVEL_MAPPING = {
+    'off': 0,
+    'low': 1,
+    'medium': 2,
+    'high': 3
+}
 
 # KIS API 클라이언트
 class KISAPIClient:

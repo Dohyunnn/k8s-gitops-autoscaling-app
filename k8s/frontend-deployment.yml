@@ -5,12 +5,7 @@ metadata:
   labels:
     app: frontend
   annotations:
-    # ArgoCD Image Updater 설정
-    argocd-image-updater.argoproj.io/image-list: frontend=dorrry/k8s-gitops-app-frontend
-    argocd-image-updater.argoproj.io/frontend.update-strategy: latest
-    argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9a-f]{7}$
-    argocd-image-updater.argoproj.io/frontend.force-update: "true"
-    argocd-image-updater.argoproj.io/write-back-method: argocd
+    # ArgoCD Image Updater 설정은 argocd-application.yml에서 일괄 관리
 spec:
   replicas: 2
   selector:

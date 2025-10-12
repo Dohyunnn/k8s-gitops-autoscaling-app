@@ -1,5 +1,5 @@
 # 주식 모니터링 백엔드 API
-# 트래픽 시뮬레이션과 자동 스케일링 테스트를 위한 Flask 서버
+# 한국투자증권 KIS API를 사용한  Flask 서버
 from flask import Flask, request, jsonify
 import socket
 import time
@@ -7,8 +7,7 @@ import threading
 import random
 import requests
 import os
-from datetime import datetime
-import yfinance as yf
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -20,23 +19,97 @@ SIMULATION_ENABLED = os.getenv('SIMULATION_ENABLED', 'true').lower() == 'true'
 auto_mode_enabled = SIMULATION_ENABLED  # 자동 모드 활성화 여부
 emergency_mode = False             # 긴급 상황 모드 여부
 
-# 주식 데이터 관리 - 국내 주식 12개
+# 주식 데이터 관리 - 국내 주식 12개 (KIS API용)
 stock_symbols = {
-    '005380.KS': '현대차',
-    '000270.KS': '기아',
-    '005930.KS': '삼성전자',
-    '000660.KS': 'SK하이닉스',
-    '373220.KS': 'LG에너지솔루션',
-    '035420.KS': 'NAVER',
-    '012450.KS': '한화에어로스페이스',
-    '034020.KS': '두산에너빌리티',
-    '105560.KS': 'KB금융',
-    '042660.KS': '한화오션',
-    '032830.KS': '삼성생명',
-    '035720.KS': '카카오'
+    '005380': '현대차',
+    '000270': '기아',
+    '005930': '삼성전자',
+    '000660': 'SK하이닉스',
+    '373220': 'LG에너지솔루션',
+    '035420': 'NAVER',
+    '012450': '한화에어로스페이스',
+    '034020': '두산에너빌리티',
+    '105560': 'KB금융',
+    '042660': '한화오션',
+    '032830': '삼성생명',
+    '035720': '카카오'
 }
 previous_prices = {}  # 이전 가격 저장
-ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')  # 환경변수에서 API 키 가져오기
+
+# KIS API 클라이언트
+class KISAPIClient:
+    def __init__(self):
+        self.app_key = os.getenv('KIS_APP_KEY')
+        self.app_secret = os.getenv('KIS_APP_SECRET')
+        self.access_token = None
+        self.token_expires_at = None
+    
+    def get_access_token(self):
+        """토큰 발급 및 자동 갱신"""
+        # 토큰이 유효한지 확인
+        if self.access_token and self.token_expires_at and self.token_expires_at > datetime.now():
+            return self.access_token
+        
+        # 새 토큰 발급
+        url = "https://openapi.koreainvestment.com:9443/oauth2/tokenP"
+        data = {
+            "grant_type": "client_credentials",
+            "appkey": self.app_key,
+            "appsecret": self.app_secret
+        }
+        
+        try:
+            response = requests.post(url, json=data)
+            response.raise_for_status()
+            
+            token_data = response.json()
+            self.access_token = token_data['access_token']
+            
+            # 24시간 후 만료
+            self.token_expires_at = datetime.now() + timedelta(hours=24)
+            
+            print(f"KIS API 토큰 발급 성공: {self.access_token[:20]}...")
+            return self.access_token
+            
+        except requests.exceptions.RequestException as e:
+            print(f"KIS API 토큰 발급 실패: {e}")
+            return None
+    
+    def get_stock_price(self, symbol):
+        """주식 가격 조회"""
+        token = self.get_access_token()
+        if not token:
+            return None
+        
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "appkey": self.app_key,
+            "appsecret": self.app_secret,
+            "tr_id": "FHKST01010100"
+        }
+        
+        params = {
+            "fid_cond_mrkt_div_code": "J",
+            "fid_input_iscd": symbol
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            if 'output' in data and len(data['output']) > 0:
+                stock_info = data['output'][0]
+                return float(stock_info['stck_prpr'])  # 현재가
+            return None
+            
+        except requests.exceptions.RequestException as e:
+            print(f"KIS API 주식 가격 조회 실패 ({symbol}): {e}")
+            return None
+
+# KIS API 클라이언트 인스턴스
+kis_client = KISAPIClient()
 
 # 자동 시간 기반 트래픽 레벨 결정
 def get_auto_traffic_level():
@@ -270,64 +343,50 @@ def get_simulation_status():
 
 
 
-# 실제 주식 가격 조회 함수
+# 주식 가격 조회 함수 (KIS API + 폴백)
 def get_real_stock_price(symbol):
-    """yfinance 라이브러리를 사용하여 실제 주식 가격 조회"""
+    """KIS API를 사용하여 실제 주식 가격 조회"""
     try:
-        # yfinance로 주식 정보 가져오기
-        ticker = yf.Ticker(symbol)
+        # KIS API로 주식 가격 조회 시도
+        price = kis_client.get_stock_price(symbol)
+        if price:
+            return price
         
-        # 현재가 조회 (info 또는 history 사용)
-        try:
-            # 먼저 info에서 현재가 시도
-            info = ticker.info
-            if 'currentPrice' in info and info['currentPrice']:
-                return float(info['currentPrice'])
-            elif 'regularMarketPrice' in info and info['regularMarketPrice']:
-                return float(info['regularMarketPrice'])
-        except:
-            pass
-        
-        # info 실패 시 최근 거래 데이터에서 가져오기
-        hist = ticker.history(period='1d')
-        if not hist.empty:
-            return float(hist['Close'].iloc[-1])
-        
-        # API 실패 시 폴백: 실제 가격 범위 내에서 랜덤 생성
-        print(f"Yahoo Finance API 실패, 폴백 가격 사용: {symbol}")
+        # KIS API 실패 시 폴백: 모의 데이터 사용
+        print(f"KIS API 실패, 모의 데이터 사용: {symbol}")
         fallback_prices = {
-            '005380.KS': 252000,   # 현대차
-            '000270.KS': 98000,    # 기아
-            '005930.KS': 57900,    # 삼성전자
-            '000660.KS': 135000,   # SK하이닉스
-            '373220.KS': 420000,   # LG에너지솔루션
-            '035420.KS': 210000,   # NAVER
-            '012450.KS': 180000,   # 한화에어로스페이스
-            '034020.KS': 18500,    # 두산에너빌리티
-            '105560.KS': 68000,    # KB금융
-            '042660.KS': 35000,    # 한화오션
-            '032830.KS': 98000,    # 삼성생명
-            '035720.KS': 45000     # 카카오
+            '005380': 252000,   # 현대차
+            '000270': 98000,    # 기아
+            '005930': 57900,    # 삼성전자
+            '000660': 135000,   # SK하이닉스
+            '373220': 420000,   # LG에너지솔루션
+            '035420': 210000,   # NAVER
+            '012450': 180000,   # 한화에어로스페이스
+            '034020': 18500,    # 두산에너빌리티
+            '105560': 68000,    # KB금융
+            '042660': 35000,    # 한화오션
+            '032830': 98000,    # 삼성생명
+            '035720': 45000     # 카카오
         }
         base_price = fallback_prices.get(symbol, 50000.0)
         return base_price + random.uniform(-base_price * 0.02, base_price * 0.02)
             
     except Exception as e:
         print(f"주식 가격 조회 오류 ({symbol}): {e}")
-        # 오류 시 데모 데이터 반환
+        # 오류 시 기본 모의 데이터 반환
         base_prices = {
-            '005380.KS': 252000,
-            '000270.KS': 98000,
-            '005930.KS': 57900,
-            '000660.KS': 135000,
-            '373220.KS': 420000,
-            '035420.KS': 210000,
-            '012450.KS': 180000,
-            '034020.KS': 18500,
-            '105560.KS': 68000,
-            '042660.KS': 35000,
-            '032830.KS': 98000,
-            '035720.KS': 45000
+            '005380': 252000,
+            '000270': 98000,
+            '005930': 57900,
+            '000660': 135000,
+            '373220': 420000,
+            '035420': 210000,
+            '012450': 180000,
+            '034020': 18500,
+            '105560': 68000,
+            '042660': 35000,
+            '032830': 98000,
+            '035720': 45000
         }
         base_price = base_prices.get(symbol, 50000.0)
         return base_price + random.uniform(-base_price * 0.02, base_price * 0.02)
@@ -449,15 +508,28 @@ def get_stock_price(symbol):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("주식 모니터링 백엔드 서버 시작")
+    print("주식 모니터링 백엔드 서버 시작 (KIS API 사용)")
     print("API 엔드포인트:")
     print("- GET  /api/health                # 헬스체크")
     print("- POST /api/simulate-traffic      # 트래픽 시뮬레이션")
-    print("- GET  /api/stock-data            # 주식 데이터")
+    print("- GET  /api/stock-data            # 주식 데이터 (KIS API)")
     print("- POST /api/emergency-simulation  # 긴급 상황 시뮬레이션")
     print("- POST /api/toggle-auto-mode      # 자동 모드 토글")
     print("- GET  /api/simulation-status     # 시뮬레이션 상태")
-    print("HPA 테스트를 위한 트래픽 시뮬레이션 기능 포함")
+    print("한국투자증권 KIS API를 사용한 가벼운 백엔드")
+    
+    # KIS API 키 확인
+    if kis_client.app_key and kis_client.app_secret:
+        print(f"\nKIS API 키 설정됨: {kis_client.app_key[:10]}...")
+        # 초기 토큰 발급 테스트
+        token = kis_client.get_access_token()
+        if token:
+            print("KIS API 토큰 발급 성공")
+        else:
+            print("KIS API 토큰 발급 실패 - 모의 데이터 사용")
+    else:
+        print("\nKIS API 키가 설정되지 않음 - 모의 데이터 사용")
+        print("환경변수 KIS_APP_KEY, KIS_APP_SECRET 설정 필요")
     
     # 자동 모드로 트래픽 시뮬레이션 시작
     if SIMULATION_ENABLED:

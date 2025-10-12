@@ -8,9 +8,9 @@ metadata:
   namespace: argocd
   annotations:
     argocd-image-updater.argoproj.io/image-list: backend=dorrry/k8s-gitops-app-backend,frontend=dorrry/k8s-gitops-app-frontend
-    argocd-image-updater.argoproj.io/backend.update-strategy: digest
+    argocd-image-updater.argoproj.io/backend.update-strategy: newest-build
     argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9a-f]{7}$
-    argocd-image-updater.argoproj.io/frontend.update-strategy: digest
+    argocd-image-updater.argoproj.io/frontend.update-strategy: newest-build
     argocd-image-updater.argoproj.io/frontend.allow-tags: regexp:^[0-9a-f]{7}$
     argocd-image-updater.argoproj.io/write-back-method: kubernetes
     argocd-image-updater.argoproj.io/git-branch: master
@@ -65,3 +65,4 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas  # HPA가 관리하므로 무시
+        - /spec/template/spec/containers/0/image  # Image Updater가 메모리에서 관리

@@ -7,12 +7,7 @@ metadata:
   labels:
     app: backend
   annotations:
-    # ArgoCD Image Updater 설정
-    argocd-image-updater.argoproj.io/image-list: backend=dorrry/k8s-gitops-app-backend
-    argocd-image-updater.argoproj.io/backend.update-strategy: latest
-    argocd-image-updater.argoproj.io/backend.allow-tags: regexp:^[0-9a-f]{7}$
-    argocd-image-updater.argoproj.io/backend.force-update: "true"
-    argocd-image-updater.argoproj.io/write-back-method: argocd
+    # ArgoCD Image Updater 설정은 argocd-application.yml에서 일괄 관리
 spec:
   replicas: 2  # 초기 Pod 수 (HPA에 의해 자동 조정됨)
   selector:
@@ -64,3 +59,13 @@ spec:
           value: "production"
         - name: SIMULATION_ENABLED
           value: "false"
+        - name: KIS_APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kis-api-secret
+              key: KIS_APP_KEY
+        - name: KIS_APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: kis-api-secret
+              key: KIS_APP_SECRET

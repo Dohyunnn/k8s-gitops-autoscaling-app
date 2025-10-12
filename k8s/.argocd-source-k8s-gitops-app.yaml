@@ -1,4 +1,4 @@
 kustomize:
   images:
-  - dorrry/k8s-gitops-app-backend=dorrry/k8s-gitops-app-backend:ccdeece
+  - dorrry/k8s-gitops-app-backend=dorrry/k8s-gitops-app-backend:4a2e34f
   - dorrry/k8s-gitops-app-frontend=dorrry/k8s-gitops-app-frontend:4a2e34f

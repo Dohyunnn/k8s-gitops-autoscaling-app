@@ -13,6 +13,6 @@ resources:
 
 images:
   - name: dorrry/k8s-gitops-app-backend
-    newTag: 627f2de12345
+    newTag: 627f2de
   - name: dorrry/k8s-gitops-app-frontend
-    newTag: 627f2de12345
+    newTag: 627f2de

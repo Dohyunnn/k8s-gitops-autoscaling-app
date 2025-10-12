@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주식 모니터링 대시보드</title>
+    <title>관리자 주식 서비스 콘솔</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -217,7 +217,7 @@
             margin-right: 10px;
         }
         .traffic {
-            color: #4CAF50;
+            font-weight: 600;
         }
         
         /* 차트 모달 스타일 */
@@ -321,60 +321,76 @@
 
         .status-display-tiny {
             margin-top: 12px;
-            padding: 10px 12px;
+            padding: 12px 14px;
             text-align: center;
-            background: rgba(15, 118, 110, 0.15);
+            background: rgba(255, 255, 255, 0.06);
             border-radius: 8px;
-            border-left: 4px solid #0bc5ea;
+            border-left: 4px solid rgba(255, 255, 255, 0.25);
         }
 
-        .status-display-tiny span {
-            font-size: 14px;
-            color: #f7fafc;
-            font-weight: 600;
+        .status-display-tiny.tone-off {
+            border-left-color: #0bc5ea;
         }
 
-        #currentStatus {
-            font-weight: 700;
+        .status-display-tiny.tone-low {
+            border-left-color: #4CAF50;
         }
 
-        #trafficLevel {
-            font-weight: 600;
+        .status-display-tiny.tone-medium {
+            border-left-color: #ff9800;
         }
 
-        #trafficLevel.off {
-            color: #0bc5ea;
-        }
-
-        #trafficLevel.low {
-            color: #4CAF50;
-        }
-
-        #trafficLevel.medium {
-            color: #ff9800;
-        }
-
-        #trafficLevel.high {
-            color: #f56565;
+        .status-display-tiny.tone-high {
+            border-left-color: #f56565;
         }
 
         .status-message {
-            display: inline-block;
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.35;
         }
 
-        .status-message.off {
+        .traffic-status {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .traffic-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .traffic-label {
+            font-size: 14px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .traffic-value {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.25;
+            display: block;
+        }
+
+        .tone-off {
             color: #0bc5ea;
         }
 
-        .status-message.low {
+        .tone-low {
             color: #4CAF50;
         }
 
-        .status-message.medium {
+        .tone-medium {
             color: #ff9800;
         }
 
-        .status-message.high {
+        .tone-high {
             color: #f56565;
         }
         
@@ -390,8 +406,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>주식 모니터링 대시보드</h1>
-            <p>실시간 주식 시장 모니터링 및 트래픽 시뮬레이션</p>
+            <h1>관리자 주식 서비스 콘솔</h1>
+            <p>프라이빗 환경의 실시간 운영 상태와 부하 시뮬레이션을 한눈에 확인하세요.</p>
         </div>
 
         <!-- 주식 검색 -->
@@ -429,11 +445,24 @@
         </div>
 
             <div class="card">
-                <h3>트래픽 상태</h3>
-                <div id="trafficStatus">
-                    <div>트래픽 레벨: <span id="trafficLevel" class="off">기본</span></div>
-                    <div>트래픽 상태: <span id="trafficState" class="status-message off">정상 상태입니다.</span></div>
-                    <div>트래픽 요청 수: <span id="trafficRequest">약간의 요청</span></div>
+                <h3>서비스 상태 모니터링</h3>
+                <div id="trafficStatus" class="traffic-status">
+                    <div class="traffic-metric">
+                        <span class="traffic-label">부하 레벨</span>
+                        <span id="trafficLevel" class="traffic-value tone-off">기본</span>
+                    </div>
+                    <div class="traffic-metric">
+                        <span class="traffic-label">운영 상태</span>
+                        <span id="trafficState" class="status-message tone-off">정상 운영 중입니다.</span>
+                    </div>
+                    <div class="traffic-metric">
+                        <span class="traffic-label">현재 접속 유저 수</span>
+                        <span id="trafficUsers" class="traffic-value tone-off">40~80명</span>
+                    </div>
+                    <div class="traffic-metric">
+                        <span class="traffic-label">예상 Pod 수</span>
+                        <span id="trafficPods" class="traffic-value tone-off">2~3개</span>
+                    </div>
                 </div>
             </div>
 
@@ -450,8 +479,8 @@
             </div>
             
             <!-- 현재 상태 표시 -->
-            <div class="status-display-tiny">
-                <span id="currentStatus" class="status-message off">정상 상태입니다.</span>
+            <div class="status-display-tiny tone-off">
+                <span id="currentStatus" class="status-message tone-off">정상 운영 중입니다.</span>
             </div>
         </div>
     </div>
@@ -468,26 +497,142 @@
     </div>
 
     <script>
-        const TRAFFIC_STATUS_MESSAGES = {
-            off: '정상 상태입니다.',
-            low: '시스템 오류 상태입니다.',
-            medium: '대량 거래 상태입니다.',
-            high: '긴급 뉴스 상태입니다.'
+        const TRAFFIC_LEVEL_DETAILS = {
+            off: {
+                label: '기본',
+                status: '정상 운영 중입니다.',
+                users: '40~80명',
+                pods: '2~3개'
+            },
+            low: {
+                label: '낮음',
+                status: '시스템 이슈 대응 중입니다.',
+                users: '120~200명',
+                pods: '2개'
+            },
+            medium: {
+                label: '중간',
+                status: '대량 거래로 부하가 증가했습니다.',
+                users: '400~750명',
+                pods: '6~10개'
+            },
+            high: {
+                label: '높음',
+                status: '긴급 뉴스로 접속자가 급증했습니다.',
+                users: '900~1300명',
+                pods: '12~15개'
+            }
         };
 
-        const TRAFFIC_LEVEL_LABELS = {
-            off: '기본',
-            low: '낮음',
-            medium: '중간',
-            high: '높음'
+        const TRAFFIC_STABILITY_THRESHOLD = 2;
+
+        const trafficStateTracker = {
+            stableLevel: 'off',
+            pendingLevel: null,
+            pendingCount: 0
         };
 
-        const TRAFFIC_REQUEST_SUMMARY = {
-            off: '약간의 요청 (Pod 2-3개)',
-            low: '낮은 요청 (Pod 2개)',
-            medium: '중간 요청 (Pod 6-10개)',
-            high: '높은 요청 (Pod 12-15개)'
-        };
+        function normalizeTrafficLevel(level) {
+            return (level || 'off').toLowerCase();
+        }
+
+        function getTrafficInfo(level) {
+            const normalized = normalizeTrafficLevel(level);
+            return TRAFFIC_LEVEL_DETAILS[normalized] || TRAFFIC_LEVEL_DETAILS.off;
+        }
+
+        function applyTone(element, tone, baseClass = '') {
+            if (!element) {
+                return;
+            }
+
+            const classNames = [];
+
+            if (baseClass) {
+                classNames.push(baseClass);
+            }
+
+            classNames.push(`tone-${tone}`);
+            element.className = classNames.join(' ');
+        }
+
+        function updateElementText(elementId, text, tone, baseClass) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                return;
+            }
+
+            element.textContent = text;
+            applyTone(element, tone, baseClass);
+        }
+
+        function renderTrafficStatus(level) {
+            const normalized = normalizeTrafficLevel(level);
+            const info = getTrafficInfo(normalized);
+
+            updateElementText('trafficLevel', info.label, normalized, 'traffic-value');
+            updateElementText('trafficState', info.status, normalized, 'status-message');
+            updateElementText('trafficUsers', info.users, normalized, 'traffic-value');
+            updateElementText('trafficPods', info.pods, normalized, 'traffic-value');
+            updateElementText('currentStatus', info.status, normalized, 'status-message');
+
+            const tinyStatusContainer = document.querySelector('.status-display-tiny');
+            if (tinyStatusContainer) {
+                tinyStatusContainer.className = `status-display-tiny tone-${normalized}`;
+            }
+        }
+
+        function handleTrafficLevelUpdate(level, options = {}) {
+            const normalized = normalizeTrafficLevel(level);
+            const { force = false } = options;
+
+            if (force) {
+                trafficStateTracker.stableLevel = normalized;
+                trafficStateTracker.pendingLevel = null;
+                trafficStateTracker.pendingCount = 0;
+                renderTrafficStatus(normalized);
+                return;
+            }
+
+            if (normalized === trafficStateTracker.stableLevel) {
+                trafficStateTracker.pendingLevel = null;
+                trafficStateTracker.pendingCount = 0;
+                renderTrafficStatus(normalized);
+                return;
+            }
+
+            if (trafficStateTracker.pendingLevel === normalized) {
+                trafficStateTracker.pendingCount += 1;
+            } else {
+                trafficStateTracker.pendingLevel = normalized;
+                trafficStateTracker.pendingCount = 1;
+            }
+
+            if (trafficStateTracker.pendingCount >= TRAFFIC_STABILITY_THRESHOLD) {
+                trafficStateTracker.stableLevel = normalized;
+                trafficStateTracker.pendingLevel = null;
+                trafficStateTracker.pendingCount = 0;
+                renderTrafficStatus(normalized);
+            }
+        }
+
+        function setTrafficStatusError(message) {
+            trafficStateTracker.pendingLevel = null;
+            trafficStateTracker.pendingCount = 0;
+            trafficStateTracker.stableLevel = 'off';
+            updateElementText('trafficLevel', '정보 없음', 'high', 'traffic-value');
+            updateElementText('currentStatus', message, 'high', 'status-message');
+            updateElementText('trafficState', message, 'high', 'status-message');
+            updateElementText('trafficUsers', '접속자 정보를 가져오지 못했습니다.', 'high', 'traffic-value');
+            updateElementText('trafficPods', '-', 'high', 'traffic-value');
+
+            const tinyStatusContainer = document.querySelector('.status-display-tiny');
+            if (tinyStatusContainer) {
+                tinyStatusContainer.className = 'status-display-tiny tone-high';
+            }
+        }
+
+        handleTrafficLevelUpdate('off', { force: true });
 
         // 시장 상태 확인
         function checkMarketStatus() {
@@ -525,6 +670,9 @@
             .then(response => response.json())
             .then(data => {
                 console.log('긴급 상황 시뮬레이션:', data);
+                if (typeof data.traffic_level !== 'undefined') {
+                    handleTrafficLevelUpdate(data.traffic_level, { force: true });
+                }
                 updateStatusDisplay();
                 
                 // 긴급 상황 알림 표시
@@ -542,6 +690,7 @@
             .then(response => response.json())
             .then(data => {
                 console.log('트래픽 시뮬레이션 종료:', data);
+                handleTrafficLevelUpdate('off', { force: true });
                 updateStatusDisplay();
             })
             .catch(error => {
@@ -553,55 +702,13 @@
             fetch('/api/simulation-status')
                 .then(response => response.json())
                 .then(data => {
-                    const statusElement = document.getElementById('currentStatus');
-                    const trafficStateElement = document.getElementById('trafficState');
-                    const trafficRequestElement = document.getElementById('trafficRequest');
-
-                    if (!statusElement) {
-                        return;
+                    if (typeof data.traffic_level !== 'undefined') {
+                        handleTrafficLevelUpdate(data.traffic_level);
                     }
-
-                    const level = (data.traffic_level || 'off').toLowerCase();
-                    const normalizedLevel = level === 'off' ? 'off' : level;
-                    const message = TRAFFIC_STATUS_MESSAGES[normalizedLevel] || TRAFFIC_STATUS_MESSAGES.off;
-
-                    statusElement.textContent = message;
-                    statusElement.className = `status-message ${normalizedLevel}`;
-
-                    if (trafficStateElement) {
-                        trafficStateElement.textContent = message;
-                        trafficStateElement.className = `status-message ${normalizedLevel}`;
-                    }
-
-                    if (trafficRequestElement) {
-                        trafficRequestElement.textContent = TRAFFIC_REQUEST_SUMMARY[normalizedLevel] || TRAFFIC_REQUEST_SUMMARY.off;
-                    }
-
-                    updateTrafficLevel(normalizedLevel);
                 })
                 .catch(error => {
                     console.error('상태 업데이트 오류:', error);
-                    const statusElement = document.getElementById('currentStatus');
-                    const trafficStateElement = document.getElementById('trafficState');
-                    const trafficRequestElement = document.getElementById('trafficRequest');
-
-                    const errorMessage = '상태 확인 중 오류가 발생했습니다.';
-
-                    if (statusElement) {
-                        statusElement.textContent = errorMessage;
-                        statusElement.className = 'status-message high';
-                    }
-
-                    if (trafficStateElement) {
-                        trafficStateElement.textContent = errorMessage;
-                        trafficStateElement.className = 'status-message high';
-                    }
-
-                    if (trafficRequestElement) {
-                        trafficRequestElement.textContent = '요청량 정보를 가져오지 못했습니다.';
-                    }
-
-                    updateTrafficLevel('off');
+                    setTrafficStatusError('운영 상태 확인 중 오류가 발생했습니다.');
                 });
         }
 
@@ -645,7 +752,10 @@
                 .then(data => {
                     console.log('주식 데이터 응답:', data);
                     updateStockCards(data.stocks);
-                    updateTrafficLevel(data.traffic_level);
+
+                    if (typeof data.traffic_level !== 'undefined') {
+                        handleTrafficLevelUpdate(data.traffic_level);
+                    }
                 })
                 .catch(error => {
                     console.error('주식 데이터 로드 오류:', error);
@@ -708,18 +818,6 @@
             updateStockCards(defaultStocks);
         }
 
-        // 트래픽 레벨 업데이트
-        function updateTrafficLevel(trafficLevel) {
-            const trafficLevelElement = document.getElementById('trafficLevel');
-            if (trafficLevelElement) {
-                const normalizedLevel = (trafficLevel || 'off').toLowerCase();
-                const label = TRAFFIC_LEVEL_LABELS[normalizedLevel] || TRAFFIC_LEVEL_LABELS.off;
-
-                trafficLevelElement.textContent = label;
-                trafficLevelElement.className = normalizedLevel;
-            }
-        }
-
         // 트래픽 로그 추가
         function addTrafficLogEntry(symbol, priceChange, trafficLevel) {
             const trafficLog = document.getElementById('trafficLog');
@@ -730,14 +828,15 @@
             
             const changeClass = priceChange > 0 ? 'positive' : 'negative';
             const changeSymbol = priceChange > 0 ? '+' : '';
-            const normalizedLevel = (trafficLevel || 'off').toLowerCase();
-            const levelLabel = TRAFFIC_LEVEL_LABELS[normalizedLevel] || TRAFFIC_LEVEL_LABELS.off;
+            const normalizedLevel = normalizeTrafficLevel(trafficLevel);
+            const levelLabel = getTrafficInfo(normalizedLevel).label;
+            const toneClass = `tone-${normalizedLevel}`;
             
             logEntry.innerHTML = `
                 <span class="timestamp">[${timestamp}]</span>
                 <span class="symbol">${symbol}</span>
                 <span class="change ${changeClass}">${changeSymbol}${priceChange.toFixed(2)}%</span>
-                <span class="traffic">→ 트래픽 ${levelLabel}</span>
+                <span class="traffic ${toneClass}">→ 부하 ${levelLabel}</span>
             `;
             
             // 맨 위에 추가

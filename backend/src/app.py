@@ -12,12 +12,18 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 # 전역 변수 - 트래픽 시뮬레이션 상태 관리
-traffic_simulation_active = False  # 시뮬레이션 활성화 여부
-current_traffic_level = 'normal'   # 현재 트래픽 레벨 (high/medium/low/normal)
-simulation_thread = None           # 시뮬레이션 스레드
+traffic_simulation_active = False      # 긴급/수동 시뮬레이션 활성화 여부
+current_traffic_level = 'off'          # 현재 트래픽 레벨 (off/low/medium/high)
+simulation_thread = None               # 시뮬레이션 스레드
+simulation_stop_event = None           # 시뮬레이션 종료 이벤트
 SIMULATION_ENABLED = os.getenv('SIMULATION_ENABLED', 'true').lower() == 'true'
-# 자동 모드 제거 (버튼 시뮬레이션만 사용)
-emergency_mode = False             # 긴급 상황 모드 여부
+emergency_mode = False                 # 긴급 상황 모드 여부
+auto_mode_enabled = False              # 자동 모드 (비활성화 기본값)
+
+# 기본 트래픽(OFF 상태) 유지를 위한 스레드 관리
+baseline_thread = None
+baseline_thread_lock = threading.Lock()
+baseline_stop_event = threading.Event()
 
 # 주식 데이터 관리 - 국내 주식 12개 (KIS API용)
 stock_symbols = {
@@ -57,13 +63,20 @@ class KISAPIClient:
             "appkey": self.app_key,
             "appsecret": self.app_secret
         }
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Accept": "application/json"
+        }
         
         try:
-            response = requests.post(url, json=data)
+            response = requests.post(url, json=data, headers=headers, timeout=10)
             response.raise_for_status()
             
             token_data = response.json()
-            self.access_token = token_data['access_token']
+            self.access_token = token_data.get('access_token')
+            if not self.access_token:
+                print(f"KIS API 토큰 응답에 access_token이 없습니다: {token_data}")
+                return None
             
             # 24시간 후 만료
             self.token_expires_at = datetime.now() + timedelta(hours=24)
@@ -86,7 +99,10 @@ class KISAPIClient:
             "Authorization": f"Bearer {token}",
             "appkey": self.app_key,
             "appsecret": self.app_secret,
-            "tr_id": "FHKST01010100"
+            "tr_id": "FHKST01010100",
+            "custtype": os.getenv('KIS_CUST_TYPE', 'P'),
+            "Content-Type": "application/json; charset=UTF-8",
+            "Accept": "application/json"
         }
         
         params = {
@@ -95,11 +111,15 @@ class KISAPIClient:
         }
         
         try:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
             print(f"KIS API 응답 ({symbol}): {data}")  # 디버깅용
+            
+            if data.get('rt_cd') not in ('0', '00'):
+                print(f"KIS API 오류 응답 ({symbol}): {data}")
+                return None
             
             if 'output' in data:
                 stock_info = data['output']
@@ -116,7 +136,91 @@ class KISAPIClient:
 # KIS API 클라이언트 인스턴스
 kis_client = KISAPIClient()
 
-# 자동 시간 기반 트래픽 레벨 제거 (버튼 시뮬레이션만 사용)
+# 트래픽 프로파일 구성 - 각각 CPU 사용량을 유도하는 반복 횟수/휴식 간격
+TRAFFIC_PROFILES = {
+    'low': {'iterations': 35, 'range_limit': 450, 'sleep': 0.5},      # 약 10~15%
+    'medium': {'iterations': 160, 'range_limit': 900, 'sleep': 0.12},  # 약 50~70%
+    'high': {'iterations': 320, 'range_limit': 1600, 'sleep': 0.04},   # 약 80~95%
+}
+BASELINE_PROFILE = {'iterations': 70, 'range_limit': 520, 'sleep': 0.35}  # OFF 상태 약 20%
+
+def _run_baseline_traffic(stop_event: threading.Event):
+    """OFF 상태에서도 약간의 트래픽을 유지하여 기본 부하를 줌"""
+    profile = BASELINE_PROFILE
+    while not stop_event.is_set():
+        for _ in range(profile['iterations']):
+            sum(range(profile['range_limit']))
+        time.sleep(profile['sleep'])
+
+def ensure_baseline_running():
+    """기본 트래픽 스레드를 한 번만 기동"""
+    global baseline_thread
+    with baseline_thread_lock:
+        if baseline_thread and baseline_thread.is_alive():
+            return
+        if baseline_stop_event.is_set():
+            baseline_stop_event.clear()
+        baseline_thread = threading.Thread(
+            target=_run_baseline_traffic,
+            args=(baseline_stop_event,),
+            daemon=True
+        )
+        baseline_thread.start()
+
+def _run_traffic_simulation(level: str, stop_event: threading.Event):
+    """긴급/수동 시뮬레이션 구간별 CPU 부하 생성"""
+    profile = TRAFFIC_PROFILES.get(level)
+    if not profile:
+        return
+    while not stop_event.is_set():
+        for _ in range(profile['iterations']):
+            sum(range(profile['range_limit']))
+        time.sleep(profile['sleep'])
+
+def stop_active_simulation():
+    """현재 진행 중인 시뮬레이션을 종료하고 OFF 상태로 복귀"""
+    global simulation_thread, simulation_stop_event, traffic_simulation_active, current_traffic_level, emergency_mode
+
+    traffic_simulation_active = False
+    emergency_mode = False
+
+    if simulation_stop_event:
+        simulation_stop_event.set()
+
+    if simulation_thread and simulation_thread.is_alive():
+        simulation_thread.join(timeout=1.0)
+
+    simulation_thread = None
+    simulation_stop_event = None
+    current_traffic_level = 'off'
+
+def start_simulation(level: str, emergency: bool = False):
+    """지정된 트래픽 레벨로 새로운 시뮬레이션 시작"""
+    global simulation_thread, simulation_stop_event, traffic_simulation_active, current_traffic_level, emergency_mode
+
+    if level not in TRAFFIC_PROFILES:
+        raise ValueError(f"Unsupported traffic level: {level}")
+
+    stop_active_simulation()
+
+    simulation_stop_event = threading.Event()
+    current_traffic_level = level
+    emergency_mode = emergency
+    traffic_simulation_active = True
+    
+    if SIMULATION_ENABLED:
+        ensure_baseline_running()
+
+    simulation_thread = threading.Thread(
+        target=_run_traffic_simulation,
+        args=(level, simulation_stop_event),
+        daemon=True
+    )
+    simulation_thread.start()
+
+
+if SIMULATION_ENABLED:
+    ensure_baseline_running()
 
 # 긴급 상황별 트래픽 레벨 (3단계 + OFF 상태)
 emergency_traffic_levels = {
@@ -125,41 +229,6 @@ emergency_traffic_levels = {
     'emergency_news': 'high'        # 긴급 뉴스: 높은 트래픽 (Pod 12-15개)
 }
 # 기본 상태: 시뮬레이션 OFF 시 정상 운영 트래픽 (Pod 2-3개)
-
-# 트래픽 시뮬레이션 함수 - HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
-def simulate_traffic():
-    global traffic_simulation_active, current_traffic_level, emergency_mode
-    
-    while traffic_simulation_active:
-        # emergency_mode가 False이면 기본 상태 (정상 운영)
-        if not emergency_mode:
-            # 기본 상태: 정상 운영 중 약간의 트래픽
-            for _ in range(20):
-                sum(range(200))
-            time.sleep(0.5)  # 500ms 간격 (CPU ~20%, Pod 2-3개)
-            continue
-        
-        if current_traffic_level == 'low':
-            # 낮은 트래픽 (시스템 오류) - Pod 2개 유지 (고가용성)
-            for _ in range(10):
-                sum(range(100))
-            time.sleep(1.0)  # 1초 간격 (CPU ~10-15%)
-            
-        elif current_traffic_level == 'medium':
-            # 중간 트래픽 (대량 거래) - Pod 6-10개 목표
-            for _ in range(80):
-                sum(range(800))
-            time.sleep(0.15)  # 150ms 간격
-            
-        elif current_traffic_level == 'high':
-            # 높은 트래픽 (긴급 뉴스) - Pod 12-15개 목표
-            for _ in range(150):
-                sum(range(2000))
-            time.sleep(0.05)  # 50ms 간격으로 매우 빠른 반복
-        
-        else:
-            # 기본 상태: 대기
-            time.sleep(1.0)
 
 # 메인 페이지 - 서버 상태 표시
 @app.route('/')
@@ -191,24 +260,31 @@ def simulate_traffic_endpoint():
             'message': '트래픽 시뮬레이션이 비활성화된 상태입니다 (SIMULATION_ENABLED=false).'
         }), 503
 
-    global traffic_simulation_active, current_traffic_level, simulation_thread
-    
-    data = request.get_json()
-    scenario = data.get('scenario', 'normal')      # 시나리오 (market_open, market_close, night_mode)
-    traffic_level = data.get('traffic_level', 'normal')  # 트래픽 레벨 (high, medium, low)
-    
-    # 기존 시뮬레이션 중지
-    traffic_simulation_active = False
-    if simulation_thread:
-        simulation_thread.join()
-    
-    # 새 시뮬레이션 시작
-    current_traffic_level = traffic_level
-    traffic_simulation_active = True
-    simulation_thread = threading.Thread(target=simulate_traffic)
-    simulation_thread.daemon = True
-    simulation_thread.start()
-    
+    data = request.get_json(silent=True) or {}
+    scenario = data.get('scenario', 'manual_trigger')
+    traffic_level = (data.get('traffic_level') or '').lower()
+
+    if traffic_level in ('off', 'normal', ''):
+        stop_active_simulation()
+        ensure_baseline_running()
+        return jsonify({
+            'success': True,
+            'message': '트래픽 시뮬레이션이 OFF 상태로 전환되었습니다.',
+            'scenario': scenario,
+            'traffic_level': current_traffic_level,
+            'timestamp': datetime.now().isoformat()
+        })
+
+    if traffic_level not in TRAFFIC_PROFILES:
+        return jsonify({
+            'success': False,
+            'message': f'지원하지 않는 트래픽 레벨입니다: {traffic_level}',
+            'timestamp': datetime.now().isoformat()
+        }), 400
+
+    ensure_baseline_running()
+    start_simulation(traffic_level, emergency=False)
+
     return jsonify({
         'success': True,
         'message': f'트래픽 시뮬레이션 시작: {scenario}',
@@ -227,13 +303,9 @@ def stop_simulation():
             'timestamp': datetime.now().isoformat()
         })
 
-    global traffic_simulation_active, simulation_thread, emergency_mode
-    
-    traffic_simulation_active = False
-    emergency_mode = False
-    if simulation_thread:
-        simulation_thread.join()
-    
+    stop_active_simulation()
+    ensure_baseline_running()
+
     return jsonify({
         'success': True,
         'message': '트래픽 시뮬레이션 중지됨',
@@ -250,46 +322,33 @@ def emergency_simulation():
             'timestamp': datetime.now().isoformat()
         }), 503
 
-    global traffic_simulation_active, current_traffic_level, simulation_thread, emergency_mode
-    
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     emergency_type = data.get('emergency_type', 'emergency_news')
-    
-    # 긴급 상황별 트래픽 레벨 설정
-    if emergency_type in emergency_traffic_levels:
-        current_traffic_level = emergency_traffic_levels[emergency_type]
-        emergency_mode = True
-        
-        # 기존 시뮬레이션 중지
-        traffic_simulation_active = False
-        if simulation_thread:
-            simulation_thread.join()
-        
-        # 새 시뮬레이션 시작
-        traffic_simulation_active = True
-        simulation_thread = threading.Thread(target=simulate_traffic)
-        simulation_thread.daemon = True
-        simulation_thread.start()
-        
-        emergency_messages = {
-            'emergency_news': '긴급 뉴스 발생 - 높은 트래픽 시뮬레이션',
-            'massive_trading': '대량 거래 체결 - 높은 트래픽 시뮬레이션',
-            'system_error': '시스템 오류 발생 - 중간 트래픽 시뮬레이션'
-        }
-        
-        return jsonify({
-            'success': True,
-            'message': emergency_messages.get(emergency_type, '긴급 상황 시뮬레이션 시작'),
-            'emergency_type': emergency_type,
-            'traffic_level': current_traffic_level,
-            'timestamp': datetime.now().isoformat()
-        })
-    else:
+
+    if emergency_type not in emergency_traffic_levels:
         return jsonify({
             'success': False,
             'message': '알 수 없는 긴급 상황 타입',
             'timestamp': datetime.now().isoformat()
         }), 400
+
+    traffic_level = emergency_traffic_levels[emergency_type]
+    ensure_baseline_running()
+    start_simulation(traffic_level, emergency=True)
+
+    emergency_messages = {
+        'emergency_news': '긴급 뉴스 발생 - 높은 트래픽 시뮬레이션',
+        'massive_trading': '대량 거래 체결 - 중간 트래픽 시뮬레이션',
+        'system_error': '시스템 오류 발생 - 낮은 트래픽 시뮬레이션'
+    }
+
+    return jsonify({
+        'success': True,
+        'message': emergency_messages.get(emergency_type, '긴급 상황 시뮬레이션 시작'),
+        'emergency_type': emergency_type,
+        'traffic_level': traffic_level,
+        'timestamp': datetime.now().isoformat()
+    })
 
 # 자동 모드 토글 API
 @app.route('/api/toggle-auto-mode', methods=['POST'])
@@ -301,39 +360,29 @@ def toggle_auto_mode():
             'timestamp': datetime.now().isoformat()
         }), 503
 
-    global auto_mode_enabled, emergency_mode, traffic_simulation_active, simulation_thread
-    
-    auto_mode_enabled = not auto_mode_enabled
-    
-    if auto_mode_enabled:
-        emergency_mode = False
-        # 자동 모드 활성화 시 시뮬레이션 재시작
-        traffic_simulation_active = False
-        if simulation_thread:
-            simulation_thread.join()
-        
-        traffic_simulation_active = True
-        simulation_thread = threading.Thread(target=simulate_traffic)
-        simulation_thread.daemon = True
-        simulation_thread.start()
-    
+    global auto_mode_enabled
+
+    auto_mode_enabled = False
+
     return jsonify({
-        'success': True,
-        'message': f'자동 모드 {"활성화" if auto_mode_enabled else "비활성화"}됨',
+        'success': False,
+        'message': '자동 모드는 현재 지원되지 않습니다. 수동 버튼을 사용해주세요.',
         'auto_mode_enabled': auto_mode_enabled,
         'timestamp': datetime.now().isoformat()
-    })
+    }), 400
 
 # 트래픽 시뮬레이션 상태 조회 API
 @app.route('/api/simulation-status', methods=['GET'])
 def get_simulation_status():
+    baseline_running = baseline_thread is not None and baseline_thread.is_alive() and not baseline_stop_event.is_set()
+
     return jsonify({
         'active': traffic_simulation_active,
         'traffic_level': current_traffic_level,
-        'auto_mode_enabled': auto_mode_enabled and SIMULATION_ENABLED,
         'emergency_mode': emergency_mode,
+        'auto_mode_enabled': False,
+        'baseline_active': baseline_running,
         'current_time': datetime.now().strftime('%H:%M:%S'),
-        'auto_traffic_level': get_auto_traffic_level() if auto_mode_enabled and SIMULATION_ENABLED else None,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -402,10 +451,10 @@ def calculate_price_change(symbol, current_price):
 
 def adjust_traffic_by_price_change(symbol, price_change):
     """가격 변동률에 따른 트래픽 조절 (자동 모드일 때만 작동)"""
-    global traffic_simulation_active, current_traffic_level, simulation_thread, auto_mode_enabled, emergency_mode
-    
+    global auto_mode_enabled
+
     # 자동 모드가 아니거나 긴급 모드일 때는 가격 변동 무시
-    if not auto_mode_enabled or emergency_mode:
+    if not (auto_mode_enabled and SIMULATION_ENABLED) or emergency_mode:
         return
     
     abs_change = abs(price_change)
@@ -420,20 +469,8 @@ def adjust_traffic_by_price_change(symbol, price_change):
     
     # 트래픽 레벨이 변경된 경우에만 시뮬레이션 재시작
     if new_traffic_level != current_traffic_level:
-        current_traffic_level = new_traffic_level
-        
-        # 기존 시뮬레이션 중지
-        traffic_simulation_active = False
-        if simulation_thread:
-            simulation_thread.join(timeout=1)
-        
-        # 새 시뮬레이션 시작
-        traffic_simulation_active = True
-        simulation_thread = threading.Thread(target=simulate_traffic)
-        simulation_thread.daemon = True
-        simulation_thread.start()
-        
-        print(f"[가격 변동 감지] {symbol}: {price_change:+.2f}% → 트래픽 레벨: {new_traffic_level}")
+        start_simulation(new_traffic_level, emergency=False)
+        print(f"[가격 변동 감지 - 자동 모드] {symbol}: {price_change:+.2f}% → 트래픽 레벨: {new_traffic_level}")
 
 # 실제 주식 데이터 API
 @app.route('/api/stock-data')
@@ -487,8 +524,7 @@ def get_stock_price(symbol):
         current_price = get_real_stock_price(symbol)
         price_change = calculate_price_change(symbol, current_price)
         
-        # 가격 변동률에 따른 트래픽 조절
-        adjust_traffic_by_price_change(symbol, price_change)
+        # 가격 변동률에 따른 자동 트래픽 조절 제거됨
         
         return jsonify({
             'symbol': symbol,
@@ -510,7 +546,7 @@ if __name__ == '__main__':
     print("- POST /api/simulate-traffic      # 트래픽 시뮬레이션")
     print("- GET  /api/stock-data            # 주식 데이터 (KIS API)")
     print("- POST /api/emergency-simulation  # 긴급 상황 시뮬레이션")
-    print("- POST /api/toggle-auto-mode      # 자동 모드 토글")
+    print("- POST /api/stop-simulation       # 시뮬레이션 중지")
     print("- GET  /api/simulation-status     # 시뮬레이션 상태")
     print("한국투자증권 KIS API를 사용한 가벼운 백엔드")
     
@@ -527,14 +563,7 @@ if __name__ == '__main__':
         print("\nKIS API 키가 설정되지 않음 - 모의 데이터 사용")
         print("환경변수 KIS_APP_KEY, KIS_APP_SECRET 설정 필요")
     
-    # 자동 모드로 트래픽 시뮬레이션 시작
-    if SIMULATION_ENABLED:
-        print("\n자동 트래픽 모드 시작 (시간 기반)")
-        traffic_simulation_active = True
-        simulation_thread = threading.Thread(target=simulate_traffic)
-        simulation_thread.daemon = True
-        simulation_thread.start()
-    else:
-        print("\n자동 트래픽 시뮬레이션이 비활성화되어 시작되지 않습니다 (SIMULATION_ENABLED=false).")
+    # 시뮬레이션은 버튼 클릭 시에만 시작 (자동 시작 안 함)
+    print("\n시뮬레이션 대기 중 (버튼 클릭 시 시작)")
     
     app.run(host='0.0.0.0', port=8081, debug=True)

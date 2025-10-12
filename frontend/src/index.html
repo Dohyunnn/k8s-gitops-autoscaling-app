@@ -743,7 +743,7 @@
             }
 
             const displayName = stock.name; // 백엔드에서 이미 변경된 이름 사용
-            const currencyClass = stock.symbol.endsWith('.KS') ? 'currency-krw' : 'currency-usd';
+            const currencyClass = stock.symbol.length === 6 && /^\d+$/.test(stock.symbol) ? 'currency-krw' : 'currency-usd';
             const priceFormat = formatPrice(stock.symbol, stock.price);
 
             card.innerHTML = `
@@ -771,8 +771,8 @@
                 { symbol: 'AAPL', name: 'Apple Inc.', price: 150.25, change_percent: 0 },
                 { symbol: 'GOOGL', name: 'Alphabet Inc.', price: 2800.50, change_percent: 0 },
                 { symbol: 'TSLA', name: 'Tesla Inc.', price: 800.00, change_percent: 0 },
-                { symbol: '005930.KS', name: 'Samsung Electronics', price: 75000, change_percent: 0 },
-                { symbol: '005380.KS', name: 'Hyundai Motor', price: 250000, change_percent: 0 }
+                { symbol: '005930', name: 'Samsung Electronics', price: 75000, change_percent: 0 },
+                { symbol: '005380', name: 'Hyundai Motor', price: 250000, change_percent: 0 }
             ];
             updateStockCards(defaultStocks);
         }
@@ -858,7 +858,7 @@
 
         // 가격 포맷팅 함수 (모든 한국 주식은 원화)
         function formatPrice(symbol, price) {
-            if (symbol.endsWith('.KS')) {
+            if (symbol.length === 6 && /^\d+$/.test(symbol)) {
                 return `₩${Math.round(price).toLocaleString()}`;
             } else {
                 return `$${price.toFixed(2)}`;

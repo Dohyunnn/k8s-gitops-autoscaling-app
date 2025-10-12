@@ -16,7 +16,7 @@ traffic_simulation_active = False  # 시뮬레이션 활성화 여부
 current_traffic_level = 'normal'   # 현재 트래픽 레벨 (high/medium/low/normal)
 simulation_thread = None           # 시뮬레이션 스레드
 SIMULATION_ENABLED = os.getenv('SIMULATION_ENABLED', 'true').lower() == 'true'
-auto_mode_enabled = SIMULATION_ENABLED  # 자동 모드 활성화 여부
+# 자동 모드 제거 (버튼 시뮬레이션만 사용)
 emergency_mode = False             # 긴급 상황 모드 여부
 
 # 주식 데이터 관리 - 국내 주식 12개 (KIS API용)
@@ -116,48 +116,34 @@ class KISAPIClient:
 # KIS API 클라이언트 인스턴스
 kis_client = KISAPIClient()
 
-# 자동 시간 기반 트래픽 레벨 결정
-def get_auto_traffic_level():
-    """현재 시간에 따른 자동 트래픽 레벨 결정"""
-    now = datetime.now()
-    hour = now.hour
-    
-    # 한국 시간 기준 (UTC+9)
-    if 9 <= hour < 15:  # 장 시작 시간 (09:00-15:00)
-        return 'high'
-    elif 15 <= hour < 18:  # 장 종료 시간 (15:00-18:00)
-        return 'medium'
-    else:  # 야간 시간 (18:00-09:00)
-        return 'low'
+# 자동 시간 기반 트래픽 레벨 제거 (버튼 시뮬레이션만 사용)
 
-# 긴급 상황별 트래픽 레벨 (3단계)
+# 긴급 상황별 트래픽 레벨 (3단계 + OFF 상태)
 emergency_traffic_levels = {
-    'system_error': 'minimal',      # 시스템 오류: 최소 트래픽 (Pod 1-2개)
+    'system_error': 'low',          # 시스템 오류: 낮은 트래픽 (Pod 2개 유지)
     'massive_trading': 'medium',    # 대량 거래: 중간 트래픽 (Pod 6-10개)
     'emergency_news': 'high'        # 긴급 뉴스: 높은 트래픽 (Pod 12-15개)
 }
-# 일반 상태(low): 시뮬레이션이 OFF일 때의 기본 상태 (Pod 2-3개)
+# 기본 상태: 시뮬레이션 OFF 시 정상 운영 트래픽 (Pod 2-3개)
 
-# 트래픽 시뮬레이션 함수 -HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
+# 트래픽 시뮬레이션 함수 - HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
 def simulate_traffic():
     global traffic_simulation_active, current_traffic_level, emergency_mode
     
     while traffic_simulation_active:
-        # 긴급 상황이 아닐 때는 기본 상태(low) 유지
+        # emergency_mode가 False이면 기본 상태 (정상 운영)
         if not emergency_mode:
-            current_traffic_level = 'low'  # 기본 상태
+            # 기본 상태: 정상 운영 중 약간의 트래픽
+            for _ in range(20):
+                sum(range(200))
+            time.sleep(0.5)  # 500ms 간격 (CPU ~20%, Pod 2-3개)
+            continue
         
-        if current_traffic_level == 'minimal':
-            # 최소 트래픽 (시스템 오류) - Pod 2개 유지 (최소값)
-            for _ in range(2):
-                sum(range(20))
-            time.sleep(3.0)  # 3초 간격으로 매우 느린 반복 (CPU 5% 미만)
-            
-        elif current_traffic_level == 'low':
-            # 낮은 트래픽 (일반 모드) - Pod 2-4개 목표
-            for _ in range(15):
-                sum(range(150))
-            time.sleep(0.8)  # 800ms 간격
+        if current_traffic_level == 'low':
+            # 낮은 트래픽 (시스템 오류) - Pod 2개 유지 (고가용성)
+            for _ in range(10):
+                sum(range(100))
+            time.sleep(1.0)  # 1초 간격 (CPU ~10-15%)
             
         elif current_traffic_level == 'medium':
             # 중간 트래픽 (대량 거래) - Pod 6-10개 목표
@@ -264,7 +250,7 @@ def emergency_simulation():
             'timestamp': datetime.now().isoformat()
         }), 503
 
-    global traffic_simulation_active, current_traffic_level, simulation_thread, emergency_mode, auto_mode_enabled
+    global traffic_simulation_active, current_traffic_level, simulation_thread, emergency_mode
     
     data = request.get_json()
     emergency_type = data.get('emergency_type', 'emergency_news')
@@ -273,7 +259,6 @@ def emergency_simulation():
     if emergency_type in emergency_traffic_levels:
         current_traffic_level = emergency_traffic_levels[emergency_type]
         emergency_mode = True
-        auto_mode_enabled = False  # 긴급 상황 시 자동 모드 비활성화
         
         # 기존 시뮬레이션 중지
         traffic_simulation_active = False

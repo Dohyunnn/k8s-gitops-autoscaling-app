@@ -12,7 +12,6 @@ from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTEN
 
 app = Flask(__name__)
 
-
 @app.before_request
 def start_timer():
     """요청 시작 시각을 기록하여 응답 지연을 산출"""

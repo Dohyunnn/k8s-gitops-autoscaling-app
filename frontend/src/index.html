@@ -293,15 +293,18 @@
         }
 
         /* 긴급 상황 시뮬레이션 스타일 */
-        .emergency-controls {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+        .simulation-buttons {
+            display: flex;
+            flex-direction: column; /* 세로 배치 */
             gap: 10px;
             margin-bottom: 15px;
+            max-width: 300px; /* 가로 크기 제한 */
+            margin-left: auto;
+            margin-right: auto; /* 가운데 정렬 */
         }
 
-        .emergency-btn-large {
-            padding: 14px 20px;
+        .simulation-btn {
+            padding: 14px 20px; /* 모든 버튼 동일한 크기 */
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -312,13 +315,13 @@
             width: 100%;
         }
 
-        .emergency-btn-large:hover {
+        .simulation-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
             filter: brightness(0.85);
         }
 
-        .emergency-btn-large:active {
+        .simulation-btn:active {
             transform: translateY(0);
         }
 
@@ -409,34 +412,11 @@
             font-style: italic;
         }
 
-        .simulation-controls {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
+        /* 기존 simulation-controls와 stop-btn 스타일 제거 (simulation-btn으로 통합) */
 
-        .stop-btn {
-            background: linear-gradient(135deg, #718096, #4a5568);
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
+        /* stop-btn 스타일은 simulation-btn으로 통합됨 */
 
-        .stop-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-            filter: brightness(0.85);
-        }
-
-        .stop-btn:active {
-            transform: translateY(0);
-        }
+        /* stop-btn 스타일은 simulation-btn으로 통합됨 */
 
         .status-display {
             background: rgba(255, 255, 255, 0.05);
@@ -493,24 +473,21 @@
                 <div id="marketTime"></div>
             </div>
 
-            <div class="card">
-                <h3>트래픽 시뮬레이션</h3>
-                
-                <!-- 트래픽 레벨 버튼들 (3개) -->
-                <div class="emergency-controls">
-                    <button onclick="triggerEmergency('system_error')" class="emergency-btn-large btn-error" title="최소 트래픽 (Pod 1-2개)">시스템 오류</button>
-                    <button onclick="triggerEmergency('massive_trading')" class="emergency-btn-large btn-trading" title="중간 트래픽 (Pod 6-10개)">대량 거래</button>
-                    <button onclick="triggerEmergency('emergency_news')" class="emergency-btn-large btn-news" title="높은 트래픽 (Pod 12-15개)">긴급 뉴스</button>
-                </div>
-                
-                <!-- 시뮬레이션 제어 -->
-                <div class="simulation-controls">
-                    <button onclick="stopSimulation()" class="stop-btn">시뮬레이션 중지</button>
-                </div>
-                <p style="font-size: 13px; color: #a0aec0; margin-top: 5px;">
-                    💡 시뮬레이션 중지 시 기본 상태(일반)로 돌아갑니다
-                </p>
+        <div class="card">
+            <h3>트래픽 시뮬레이션</h3>
+            
+            <!-- 모든 시뮬레이션 버튼들 (4개 세로 배치) -->
+            <div class="simulation-buttons">
+                <button onclick="triggerEmergency('system_error')" class="simulation-btn btn-error" title="최소 트래픽 (Pod 2개)">시스템 오류</button>
+                <button onclick="triggerEmergency('massive_trading')" class="simulation-btn btn-trading" title="중간 트래픽 (Pod 6-10개)">대량 거래</button>
+                <button onclick="triggerEmergency('emergency_news')" class="simulation-btn btn-news" title="높은 트래픽 (Pod 12-15개)">긴급 뉴스</button>
+                <button onclick="stopSimulation()" class="simulation-btn stop-btn">시뮬레이션 중지</button>
             </div>
+            
+            <p style="font-size: 13px; color: #a0aec0; margin-top: 10px;">
+                💡 시뮬레이션 중지 시 기본 상태(일반)로 돌아갑니다
+            </p>
+        </div>
 
             <div class="card">
                 <h3>시스템 상태</h3>

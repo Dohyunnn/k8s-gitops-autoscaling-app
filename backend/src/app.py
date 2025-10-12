@@ -135,12 +135,12 @@ emergency_traffic_levels = {
 
 # 트래픽 시뮬레이션 함수 -HPA 테스트를 위해 CPU 사용률을 인위적으로 증가시킴
 def simulate_traffic():
-    global traffic_simulation_active, current_traffic_level, auto_mode_enabled, emergency_mode
+    global traffic_simulation_active, current_traffic_level, emergency_mode
     
     while traffic_simulation_active:
-        # 자동 모드가 활성화되고 긴급 상황이 아닐 때만 시간 기반 트래픽 적용
-        if auto_mode_enabled and not emergency_mode:
-            current_traffic_level = get_auto_traffic_level()
+        # 긴급 상황이 아닐 때는 기본 상태(low) 유지
+        if not emergency_mode:
+            current_traffic_level = 'low'  # 기본 상태
         
         if current_traffic_level == 'minimal':
             # 최소 트래픽 (시스템 오류) - Pod 2개 유지 (최소값)

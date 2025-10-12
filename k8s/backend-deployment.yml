@@ -57,8 +57,8 @@ spec:
         env:
         - name: FLASK_ENV
           value: "production"
-        - name: SIMULATION_ENABLED
-          value: "false"
+              - name: SIMULATION_ENABLED
+                value: "true"
         - name: KIS_APP_KEY
           valueFrom:
             secretKeyRef:

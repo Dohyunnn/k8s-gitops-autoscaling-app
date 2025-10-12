@@ -28,6 +28,12 @@
   delay: 10
   ignore_errors: yes
 
+- name: Deploy Grafana dashboard config
+  kubernetes.core.k8s:
+    state: present
+    src: ../monitoring/grafana/grafana-dashboard-config.yml
+    namespace: monitoring
+
 - name: Deploy Grafana
   kubernetes.core.k8s:
     state: present
@@ -64,4 +70,3 @@
       - "  kubectl get svc -n monitoring"
       - "  kubectl get pods -n monitoring"
       - "============================================"
-

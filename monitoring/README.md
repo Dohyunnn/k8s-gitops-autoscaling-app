@@ -3,7 +3,7 @@
 ## Prometheus + Grafana 설치 순서
 
 ### 0. 사전 준비
-- `kubectl config current-context`로 작업할 클러스터가 맞는지 확인한다다.
+- `kubectl config current-context`로 작업할 클러스터가 맞는지 확인한다.
 - NodePort `30090`(Prometheus), `30300`(Grafana)가 방화벽/보안그룹에서 열려 있는지 확인한다.
 
 ### 1. Prometheus 배포
@@ -23,8 +23,11 @@ Prometheus UI
 http://<node-ip>:30090
 ```
 
-### 2. Grafana 배포
+### 2. Grafana 배포 (대시보드 자동 프로비저닝 포함)
 ```bash
+# 대시보드/프로바이더 ConfigMap 적용
+kubectl apply -f monitoring/grafana/grafana-dashboard-config.yml
+
 # Grafana Deployment/Service 및 기본 데이터소스 구성
 kubectl apply -f monitoring/grafana/grafana-deployment.yml
 
@@ -41,6 +44,8 @@ PW: admin
 ```
 
 > `monitoring/grafana/grafana-deployment.yml`에 정의된 Secret을 수정하면 기본 관리자 계정을 쉽게 바꿀 수 있다.
+>
+> `monitoring/grafana/grafana-dashboard-config.yml`과 `grafana-deployment.yml`이 함께 적용되면 `HPA 트래픽 시뮬레이션 모니터링` 대시보드가 자동으로 생성된다.
 
 ### 3. Grafana 대시보드 설정
 
@@ -48,8 +53,8 @@ PW: admin
    - 로그인 후 *Configuration → Data Sources* 메뉴에서 `Prometheus`가 자동 등록돼 있는지 확인한다.
    - 문제가 있을 경우 URL은 `http://prometheus.monitoring.svc.cluster.local:9090`을 사용한다.
 
-2. **추천 대시보드 Import**
-   - *Dashboards → Import* 메뉴에서 다음 ID를 입력한다.
+2. **추천 대시보드 Import (선택)**
+   - 기본 제공되는 `HPA 트래픽 시뮬레이션 모니터링` 외에 추가로 필요한 경우:
      - `315` : Kubernetes cluster monitoring (via Prometheus)
      - `6417`: Kubernetes workload metrics
      - `3662`: Prometheus 2.0 statistics
@@ -66,6 +71,7 @@ monitoring/
 ├── prometheus/
 │   └── prometheus-deployment.yml
 └── grafana/
+    ├── grafana-dashboard-config.yml
     └── grafana-deployment.yml
 ```
 

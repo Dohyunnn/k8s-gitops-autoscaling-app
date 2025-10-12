@@ -339,109 +339,67 @@
         }
 
         .stop-btn {
-            background: linear-gradient(135deg, #4a5568, #2d3748);  /* 진한 회색 */
+            background: linear-gradient(135deg, #b5b8bd, #b7bac1);  /* 진한 회색 */
             color: white;
         }
 
-        /* 작은 자동 모드 토글 */
-        .auto-mode-control-small {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 15px;
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            border-left: 3px solid #4299e1;
-        }
-
-        .toggle-switch-small {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 22px;
-        }
-
-        .toggle-switch-small input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider-small {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #718096;
-            transition: .4s;
-            border-radius: 22px;
-        }
-
-        .slider-small:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider-small {
-            background-color: #4299e1;
-        }
-
-        input:checked + .slider-small:before {
-            transform: translateX(18px);
-        }
-
-        .auto-mode-status-text {
-            font-size: 12px;
-            color: #a0aec0;
-        }
-
         .status-display-tiny {
-            margin-top: 8px;
-            padding: 4px 8px;
+            margin-top: 12px;
+            padding: 10px 12px;
             text-align: center;
+            background: rgba(15, 118, 110, 0.15);
+            border-radius: 8px;
+            border-left: 4px solid #0bc5ea;
         }
 
         .status-display-tiny span {
-            font-size: 10px;
-            color: #718096;
-            font-style: italic;
-        }
-
-        /* 기존 simulation-controls와 stop-btn 스타일 제거 (simulation-btn으로 통합) */
-
-        /* stop-btn 스타일은 simulation-btn으로 통합됨 */
-
-        /* stop-btn 스타일은 simulation-btn으로 통합됨 */
-
-        .status-display {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #00d2d3;
-        }
-
-        .status-display div {
-            margin-bottom: 5px;
-            font-size: 13px;
+            font-size: 14px;
+            color: #f7fafc;
+            font-weight: 600;
         }
 
         #currentStatus {
-            color: #00d2d3;
-            font-weight: bold;
+            font-weight: 700;
         }
 
-        #currentTime {
-            color: #ffffff;
+        #trafficLevel {
+            font-weight: 600;
+        }
+
+        #trafficLevel.off {
+            color: #0bc5ea;
+        }
+
+        #trafficLevel.low {
+            color: #4CAF50;
+        }
+
+        #trafficLevel.medium {
+            color: #ff9800;
+        }
+
+        #trafficLevel.high {
+            color: #f56565;
+        }
+
+        .status-message {
+            display: inline-block;
+        }
+
+        .status-message.off {
+            color: #0bc5ea;
+        }
+
+        .status-message.low {
+            color: #4CAF50;
+        }
+
+        .status-message.medium {
+            color: #ff9800;
+        }
+
+        .status-message.high {
+            color: #f56565;
         }
         
         /* 통화 표시 스타일 */
@@ -483,14 +441,14 @@
             
             <!-- 모든 시뮬레이션 버튼들 (4개 세로 배치) -->
             <div class="simulation-buttons">
-                <button onclick="triggerEmergency('system_error')" class="simulation-btn btn-error" title="최소 트래픽 (Pod 2개)">시스템 오류</button>
+                <button onclick="triggerEmergency('system_error')" class="simulation-btn btn-error" title="낮은 트래픽 (Pod 2개)">시스템 오류</button>
                 <button onclick="triggerEmergency('massive_trading')" class="simulation-btn btn-trading" title="중간 트래픽 (Pod 6-10개)">대량 거래</button>
                 <button onclick="triggerEmergency('emergency_news')" class="simulation-btn btn-news" title="높은 트래픽 (Pod 12-15개)">긴급 뉴스</button>
-                <button onclick="stopSimulation()" class="simulation-btn stop-btn">시뮬레이션 중지</button>
+                <button onclick="stopSimulation()" class="simulation-btn stop-btn" title="기본 상태 (Pod 2-3개)">종료</button>
             </div>
             
             <p style="font-size: 13px; color: #a0aec0; margin-top: 10px;">
-                💡 시뮬레이션 중지 시 기본 상태(일반)로 돌아갑니다
+                💡 종료 버튼을 누르면 기본 상태(OFF)로 돌아갑니다.
             </p>
         </div>
 
@@ -499,18 +457,10 @@
                 <div id="systemStatus">
                     <div>백엔드: <span id="backendStatus" class="loading"></span></div>
                     <div>연결 상태: <span id="connectionStatus">확인 중...</span></div>
-                    <div>트래픽 레벨: <span id="trafficLevel">normal</span></div>
+                    <div>트래픽 레벨: <span id="trafficLevel" class="off">기본</span></div>
                 </div>
             </div>
 
-            <div class="card">
-                <h3>자동 스케일링</h3>
-                <div id="scalingInfo">
-                    <div>현재 Pod 수: <span id="podCount">확인 중...</span></div>
-                    <div>CPU 사용률: <span id="cpuUsage">확인 중...</span></div>
-                    <div>메모리 사용률: <span id="memoryUsage">확인 중...</span></div>
-                </div>
-            </div>
         </div>
 
         <!-- 트래픽 시뮬레이션 로그 -->
@@ -525,7 +475,7 @@
             
             <!-- 현재 상태 표시 -->
             <div class="status-display-tiny">
-                <span id="currentStatus">시뮬레이션 대기 중</span>
+                <span id="currentStatus" class="status-message off">정상 상태입니다.</span>
             </div>
         </div>
     </div>
@@ -542,6 +492,20 @@
     </div>
 
     <script>
+        const TRAFFIC_STATUS_MESSAGES = {
+            off: '정상 상태입니다.',
+            low: '시스템 오류 상태입니다.',
+            medium: '대량 거래 상태입니다.',
+            high: '긴급 뉴스 상태입니다.'
+        };
+
+        const TRAFFIC_LEVEL_LABELS = {
+            off: '기본',
+            low: '낮음',
+            medium: '중간',
+            high: '높음'
+        };
+
         // 시장 상태 확인
         function checkMarketStatus() {
             const now = new Date();
@@ -563,30 +527,6 @@
                 statusElement.className = 'status market-closed';
                 timeElement.textContent = `현재 시간: ${now.toLocaleTimeString('ko-KR')}`;
             }
-        }
-
-        // 하이브리드 트래픽 시뮬레이션
-        function toggleAutoMode() {
-            const toggle = document.getElementById('autoModeToggle');
-            const status = document.getElementById('autoModeStatus');
-            
-            fetch('/api/toggle-auto-mode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('자동 모드 토글:', data);
-                status.textContent = data.auto_mode_enabled ? '자동 모드 활성화' : '자동 모드 비활성화';
-                updateStatusDisplay();
-            })
-            .catch(error => {
-                console.error('자동 모드 토글 오류:', error);
-                // 토글 상태 복원
-                toggle.checked = !toggle.checked;
-            });
         }
 
         function triggerEmergency(emergencyType) {
@@ -618,34 +558,41 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log('트래픽 시뮬레이션 중지:', data);
+                console.log('트래픽 시뮬레이션 종료:', data);
                 updateStatusDisplay();
             })
             .catch(error => {
-                console.error('트래픽 시뮬레이션 중지 오류:', error);
+                console.error('트래픽 시뮬레이션 종료 오류:', error);
             });
         }
 
         function updateStatusDisplay() {
             fetch('/api/simulation-status')
-            .then(response => response.json())
-            .then(data => {
-                const statusElement = document.getElementById('currentStatus');
-                
-                let statusText = '';
-                if (data.emergency_mode) {
-                    statusText = `긴급 상황 모드 (${data.traffic_level})`;
-                } else if (data.auto_mode_enabled) {
-                    statusText = `자동 모드 (${data.auto_traffic_level})`;
-                } else {
-                    statusText = '수동 모드';
-                }
-                
-                statusElement.textContent = statusText;
-            })
-            .catch(error => {
-                console.error('상태 업데이트 오류:', error);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('currentStatus');
+                    if (!statusElement) {
+                        return;
+                    }
+
+                    const level = (data.traffic_level || 'off').toLowerCase();
+                    const isActive = Boolean(data.active) && level !== 'off';
+                    const normalizedLevel = isActive ? level : 'off';
+                    const message = TRAFFIC_STATUS_MESSAGES[normalizedLevel] || TRAFFIC_STATUS_MESSAGES.off;
+
+                    statusElement.textContent = message;
+                    statusElement.className = `status-message ${normalizedLevel}`;
+                    updateTrafficLevel(normalizedLevel);
+                })
+                .catch(error => {
+                    console.error('상태 업데이트 오류:', error);
+                    const statusElement = document.getElementById('currentStatus');
+                    if (statusElement) {
+                        statusElement.textContent = '상태 확인 중 오류가 발생했습니다.';
+                        statusElement.className = 'status-message high';
+                    }
+                    updateTrafficLevel('off');
+                });
         }
 
         function showEmergencyAlert(message, type) {
@@ -766,11 +713,11 @@
         function updateTrafficLevel(trafficLevel) {
             const trafficLevelElement = document.getElementById('trafficLevel');
             if (trafficLevelElement) {
-                trafficLevelElement.textContent = trafficLevel;
-                
-                // 트래픽 레벨에 따른 색상 변경
-                trafficLevelElement.className = '';
-                trafficLevelElement.classList.add(trafficLevel);
+                const normalizedLevel = (trafficLevel || 'off').toLowerCase();
+                const label = TRAFFIC_LEVEL_LABELS[normalizedLevel] || TRAFFIC_LEVEL_LABELS.off;
+
+                trafficLevelElement.textContent = label;
+                trafficLevelElement.className = normalizedLevel;
             }
         }
 
@@ -784,12 +731,14 @@
             
             const changeClass = priceChange > 0 ? 'positive' : 'negative';
             const changeSymbol = priceChange > 0 ? '+' : '';
+            const normalizedLevel = (trafficLevel || 'off').toLowerCase();
+            const levelLabel = TRAFFIC_LEVEL_LABELS[normalizedLevel] || TRAFFIC_LEVEL_LABELS.off;
             
             logEntry.innerHTML = `
                 <span class="timestamp">[${timestamp}]</span>
                 <span class="symbol">${symbol}</span>
                 <span class="change ${changeClass}">${changeSymbol}${priceChange.toFixed(2)}%</span>
-                <span class="traffic">→ 트래픽 ${trafficLevel}</span>
+                <span class="traffic">→ 트래픽 ${levelLabel}</span>
             `;
             
             // 맨 위에 추가
@@ -983,6 +932,7 @@
             checkMarketStatus();
             checkSystemStatus();
             loadStockData();
+            updateStatusDisplay();
             
             // 1분마다 상태 업데이트
             setInterval(checkMarketStatus, 60000);

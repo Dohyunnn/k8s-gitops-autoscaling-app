@@ -106,7 +106,7 @@ data:
           },
           "targets": [
             {
-              "expr": "max_over_time(backend_current_traffic_level[5m])",
+              "expr": "max(max without (instance, pod) (backend_current_traffic_level) or vector(0))",
               "legendFormat": "",
               "refId": "A"
             }
@@ -116,6 +116,10 @@ data:
             "graphMode": "none",
             "justifyMode": "center",
             "orientation": "auto",
+            "text": {
+              "titleSize": 16,
+              "valueSize": 48
+            },
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -123,29 +127,12 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "value_and_name"
+            "textMode": "value"
           },
           "fieldConfig": {
             "defaults": {
-              "mappings": [
-                {
-                  "type": "value",
-                  "options": {
-                    "0": {
-                      "text": "OFF"
-                    },
-                    "1": {
-                      "text": "LOW"
-                    },
-                    "2": {
-                      "text": "MEDIUM"
-                    },
-                    "3": {
-                      "text": "HIGH"
-                    }
-                  }
-                }
-              ],
+              "decimals": 0,
+              "unit": "none",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -153,18 +140,9 @@ data:
                     "color": "rgba(117, 128, 138, 0.7)",
                     "value": null
                   },
-                  {
-                    "color": "blue",
-                    "value": 1
-                  },
-                  {
-                    "color": "orange",
-                    "value": 2
-                  },
-                  {
-                    "color": "red",
-                    "value": 3
-                  }
+                  { "color": "blue", "value": 1 },
+                  { "color": "orange", "value": 2 },
+                  { "color": "red", "value": 3 }
                 ]
               }
             },
@@ -186,7 +164,7 @@ data:
           },
           "targets": [
             {
-              "expr": "backend_traffic_simulation_active",
+              "expr": "max(max without (instance, pod) (backend_traffic_simulation_active) or vector(0))",
               "refId": "A"
             }
           ],
@@ -195,6 +173,10 @@ data:
             "graphMode": "none",
             "justifyMode": "center",
             "orientation": "auto",
+            "text": {
+              "titleSize": 16,
+              "valueSize": 48
+            },
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -202,7 +184,7 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "value_and_name"
+            "textMode": "value"
           },
           "fieldConfig": {
             "defaults": {
@@ -210,12 +192,8 @@ data:
                 {
                   "type": "value",
                   "options": {
-                    "0": {
-                      "text": "시뮬레이션 OFF"
-                    },
-                    "1": {
-                      "text": "시뮬레이션 ON"
-                    }
+                    "0": { "text": "시뮬레이션 OFF" },
+                    "1": { "text": "시뮬레이션 ON" }
                   }
                 }
               ],
@@ -226,10 +204,7 @@ data:
                     "color": "rgba(117, 128, 138, 0.7)",
                     "value": null
                   },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
+                  { "color": "green", "value": 1 }
                 ]
               }
             },
@@ -238,7 +213,7 @@ data:
         },
         {
           "type": "stat",
-          "title": "긴급 모드",
+          "title": "현재 이벤트",
           "gridPos": {
             "h": 3,
             "w": 8,
@@ -251,7 +226,7 @@ data:
           },
           "targets": [
             {
-              "expr": "backend_traffic_emergency_mode",
+              "expr": "max(max without (instance, pod) (backend_current_traffic_level) or vector(0))",
               "refId": "A"
             }
           ],
@@ -260,6 +235,10 @@ data:
             "graphMode": "none",
             "justifyMode": "center",
             "orientation": "auto",
+            "text": {
+              "titleSize": 16,
+              "valueSize": 48
+            },
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -267,7 +246,7 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "value_and_name"
+            "textMode": "value"
           },
           "fieldConfig": {
             "defaults": {
@@ -275,12 +254,10 @@ data:
                 {
                   "type": "value",
                   "options": {
-                    "0": {
-                      "text": "긴급 모드 OFF"
-                    },
-                    "1": {
-                      "text": "긴급 모드 ON"
-                    }
+                    "0": { "text": "기본 상태" },
+                    "1": { "text": "시스템 오류" },
+                    "2": { "text": "대량 거래" },
+                    "3": { "text": "긴급 뉴스" }
                   }
                 }
               ],
@@ -291,10 +268,9 @@ data:
                     "color": "rgba(117, 128, 138, 0.7)",
                     "value": null
                   },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
+                  { "color": "blue", "value": 1 },
+                  { "color": "orange", "value": 2 },
+                  { "color": "red", "value": 3 }
                 ]
               }
             },
@@ -430,7 +406,7 @@ data:
           },
           "targets": [
             {
-              "expr": "avg(rate(container_cpu_usage_seconds_total{namespace=\"default\", pod=~\"backend-deployment-.*\"}[1m])) * 100",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"default\", pod=~\"backend-deployment-.*\"}[1m])) / sum(container_spec_cpu_quota{namespace=\"default\", pod=~\"backend-deployment-.*\"} / container_spec_cpu_period{namespace=\"default\", pod=~\"backend-deployment-.*\"}) * 100",
               "legendFormat": "CPU 사용률",
               "refId": "A"
             }

@@ -10,6 +10,16 @@ import os
 from datetime import datetime, timedelta
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
+try:
+    from kubernetes import client as k8s_client, config as k8s_config
+    from kubernetes.client.rest import ApiException
+    from kubernetes.config.config_exception import ConfigException
+except Exception:  # kubernetes 패키지가 없거나 외부 환경에서 실행되는 경우
+    k8s_client = None
+    k8s_config = None
+    ApiException = None
+    ConfigException = Exception
+
 app = Flask(__name__)
 
 @app.before_request
@@ -38,11 +48,17 @@ def record_request_metrics(response):
 @app.route('/metrics')
 def metrics():
     """Prometheus가 스크랩할 메트릭 엔드포인트"""
-    SIMULATION_ACTIVE_GAUGE.set(1 if traffic_simulation_active else 0)
-    EMERGENCY_MODE_GAUGE.set(1 if emergency_mode else 0)
-    CURRENT_TRAFFIC_LEVEL_GAUGE.set(
-        TRAFFIC_LEVEL_MAPPING.get(current_traffic_level, 0)
-    )
+    refresh_simulation_state_from_store()
+
+    with simulation_state_lock:
+        active = traffic_simulation_active
+        emergency = emergency_mode
+        level = current_traffic_level
+
+    SIMULATION_ACTIVE_GAUGE.set(1 if active else 0)
+    EMERGENCY_MODE_GAUGE.set(1 if emergency else 0)
+    CURRENT_TRAFFIC_LEVEL_GAUGE.set(TRAFFIC_LEVEL_MAPPING.get(level, 0))
+
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
@@ -54,6 +70,15 @@ simulation_stop_event = None           # 시뮬레이션 종료 이벤트
 SIMULATION_ENABLED = os.getenv('SIMULATION_ENABLED', 'true').lower() == 'true'
 emergency_mode = False                 # 긴급 상황 모드 여부
 auto_mode_enabled = False              # 자동 모드 (비활성화 기본값)
+
+# 시뮬레이션 상태 공유를 위한 ConfigMap 설정
+SIM_STATE_CONFIGMAP_NAME = os.getenv('SIM_STATE_CONFIGMAP', 'backend-simulation-state')
+SIM_STATE_SYNC_INTERVAL = int(os.getenv('SIM_STATE_SYNC_INTERVAL', '5'))
+
+k8s_enabled = False
+k8s_core_v1 = None
+simulation_state_lock = threading.Lock()
+simulation_state_sync_thread = None
 
 # 기본 트래픽(OFF 상태) 유지를 위한 스레드 관리
 baseline_thread = None
@@ -107,6 +132,107 @@ TRAFFIC_LEVEL_MAPPING = {
     'medium': 2,
     'high': 3
 }
+
+
+def _default_simulation_state():
+    return {
+        'traffic_level': 'off',
+        'simulation_active': False,
+        'emergency_mode': False
+    }
+
+
+def _state_to_strings():
+    with simulation_state_lock:
+        return {
+            'traffic_level': current_traffic_level,
+            'simulation_active': 'true' if traffic_simulation_active else 'false',
+            'emergency_mode': 'true' if emergency_mode else 'false'
+        }
+
+
+def _strings_to_state(data):
+    state = _default_simulation_state()
+    if not data:
+        return state
+    state['traffic_level'] = data.get('traffic_level', state['traffic_level'])
+    state['simulation_active'] = data.get('simulation_active', 'false').lower() == 'true'
+    state['emergency_mode'] = data.get('emergency_mode', 'false').lower() == 'true'
+    return state
+
+
+def _detect_namespace():
+    env_ns = os.getenv('POD_NAMESPACE') or os.getenv('KUBERNETES_NAMESPACE')
+    if env_ns:
+        return env_ns
+    try:
+        with open('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return 'default'
+
+
+K8S_NAMESPACE = _detect_namespace()
+
+
+def persist_simulation_state():
+    """현재 시뮬레이션 상태를 ConfigMap에 저장"""
+    if not k8s_enabled or k8s_core_v1 is None:
+        return
+
+    data = _state_to_strings()
+
+    try:
+        existing = k8s_core_v1.read_namespaced_config_map(SIM_STATE_CONFIGMAP_NAME, K8S_NAMESPACE)
+        if existing.data is None:
+            existing.data = {}
+        existing.data.update(data)
+        k8s_core_v1.replace_namespaced_config_map(SIM_STATE_CONFIGMAP_NAME, K8S_NAMESPACE, existing)
+    except ApiException as exc:
+        if exc.status == 404:
+            body = k8s_client.V1ConfigMap(
+                metadata=k8s_client.V1ObjectMeta(name=SIM_STATE_CONFIGMAP_NAME),
+                data=data
+            )
+            try:
+                k8s_core_v1.create_namespaced_config_map(K8S_NAMESPACE, body)
+            except ApiException as create_exc:
+                print(f"ConfigMap 생성 실패: {create_exc}")
+        else:
+            print(f"시뮬레이션 상태 저장 실패: {exc}")
+
+
+def fetch_simulation_state():
+    """ConfigMap에서 시뮬레이션 상태를 읽어 온다."""
+    if not k8s_enabled or k8s_core_v1 is None:
+        return None
+    try:
+        config_map = k8s_core_v1.read_namespaced_config_map(SIM_STATE_CONFIGMAP_NAME, K8S_NAMESPACE)
+        return _strings_to_state(config_map.data or {})
+    except ApiException as exc:
+        if exc.status != 404:
+            print(f"시뮬레이션 상태 조회 실패: {exc}")
+        return None
+
+
+def ensure_simulation_configmap():
+    """ConfigMap이 없으면 생성한다."""
+    if not k8s_enabled or k8s_core_v1 is None:
+        return
+    try:
+        k8s_core_v1.read_namespaced_config_map(SIM_STATE_CONFIGMAP_NAME, K8S_NAMESPACE)
+    except ApiException as exc:
+        if exc.status == 404:
+            body = k8s_client.V1ConfigMap(
+                metadata=k8s_client.V1ObjectMeta(name=SIM_STATE_CONFIGMAP_NAME),
+                data=_state_to_strings()
+            )
+            try:
+                k8s_core_v1.create_namespaced_config_map(K8S_NAMESPACE, body)
+            except ApiException as create_exc:
+                print(f"ConfigMap 초기 생성 실패: {create_exc}")
+        else:
+            print(f"ConfigMap 확인 실패: {exc}")
 
 # KIS API 클라이언트
 class KISAPIClient:
@@ -243,50 +369,147 @@ def _run_traffic_simulation(level: str, stop_event: threading.Event):
             sum(range(profile['range_limit']))
         time.sleep(profile['sleep'])
 
-def stop_active_simulation():
+def stop_active_simulation(persist: bool = True):
     """현재 진행 중인 시뮬레이션을 종료하고 OFF 상태로 복귀"""
     global simulation_thread, simulation_stop_event, traffic_simulation_active, current_traffic_level, emergency_mode
 
-    traffic_simulation_active = False
-    emergency_mode = False
+    with simulation_state_lock:
+        active_thread = simulation_thread
+        stop_event = simulation_stop_event
+        was_active = traffic_simulation_active
+        previous_level = current_traffic_level
+        previous_emergency = emergency_mode
 
-    if simulation_stop_event:
-        simulation_stop_event.set()
+        traffic_simulation_active = False
+        emergency_mode = False
+        current_traffic_level = 'off'
+        simulation_thread = None
+        simulation_stop_event = None
 
-    if simulation_thread and simulation_thread.is_alive():
-        simulation_thread.join(timeout=1.0)
+    if stop_event:
+        stop_event.set()
 
-    simulation_thread = None
-    simulation_stop_event = None
-    current_traffic_level = 'off'
+    if active_thread and active_thread.is_alive():
+        active_thread.join(timeout=1.0)
 
-def start_simulation(level: str, emergency: bool = False):
+    if persist and (was_active or previous_level != 'off' or previous_emergency):
+        persist_simulation_state()
+
+
+def start_simulation(level: str, emergency: bool = False, persist: bool = True):
     """지정된 트래픽 레벨로 새로운 시뮬레이션 시작"""
     global simulation_thread, simulation_stop_event, traffic_simulation_active, current_traffic_level, emergency_mode
 
     if level not in TRAFFIC_PROFILES:
         raise ValueError(f"Unsupported traffic level: {level}")
 
-    stop_active_simulation()
+    stop_active_simulation(persist=False)
 
-    simulation_stop_event = threading.Event()
-    current_traffic_level = level
-    emergency_mode = emergency
-    traffic_simulation_active = True
-    
+    stop_event = threading.Event()
+
     if SIMULATION_ENABLED:
         ensure_baseline_running()
 
-    simulation_thread = threading.Thread(
+    new_thread = threading.Thread(
         target=_run_traffic_simulation,
-        args=(level, simulation_stop_event),
+        args=(level, stop_event),
         daemon=True
     )
-    simulation_thread.start()
+
+    with simulation_state_lock:
+        simulation_stop_event = stop_event
+        simulation_thread = new_thread
+        current_traffic_level = level
+        emergency_mode = emergency
+        traffic_simulation_active = True
+
+    new_thread.start()
+
+    if persist:
+        persist_simulation_state()
+
+
+def _apply_desired_state(desired_state):
+    """ConfigMap에서 읽은 상태를 로컬에 반영"""
+    if desired_state is None:
+        return
+
+    desired_active = desired_state.get('simulation_active', False)
+    desired_level = desired_state.get('traffic_level', 'off')
+    desired_emergency = desired_state.get('emergency_mode', False)
+
+    with simulation_state_lock:
+        current_active = traffic_simulation_active
+        current_level = current_traffic_level
+        current_emergency = emergency_mode
+
+    if not desired_active:
+        if current_active or current_level != 'off' or current_emergency:
+            stop_active_simulation(persist=False)
+            if SIMULATION_ENABLED:
+                ensure_baseline_running()
+        return
+
+    if (not current_active) or current_level != desired_level or current_emergency != desired_emergency:
+        start_simulation(desired_level, emergency=desired_emergency, persist=False)
+
+
+def _simulation_state_sync_loop():
+    """ConfigMap 상태를 주기적으로 동기화"""
+    while True:
+        if not k8s_enabled:
+            time.sleep(SIM_STATE_SYNC_INTERVAL)
+            continue
+
+        state = fetch_simulation_state()
+        if state:
+            _apply_desired_state(state)
+
+        time.sleep(SIM_STATE_SYNC_INTERVAL)
+
+
+def bootstrap_simulation_state_sync():
+    """Kubernetes 클라이언트 초기화 및 동기화 스레드 시작"""
+    global k8s_enabled, k8s_core_v1, simulation_state_sync_thread
+
+    if k8s_client is None or k8s_config is None:
+        return
+
+    try:
+        k8s_config.load_incluster_config()
+        k8s_core_v1 = k8s_client.CoreV1Api()
+        k8s_enabled = True
+    except (ConfigException, ApiException) as exc:
+        print(f"Kubernetes 클라이언트 초기화 실패: {exc}")
+        k8s_enabled = False
+        return
+
+    ensure_simulation_configmap()
+    state = fetch_simulation_state()
+    if state:
+        _apply_desired_state(state)
+
+    if simulation_state_sync_thread is None:
+        simulation_state_sync_thread = threading.Thread(
+            target=_simulation_state_sync_loop,
+            daemon=True
+        )
+        simulation_state_sync_thread.start()
+
+
+def refresh_simulation_state_from_store():
+    """필요 시 ConfigMap 상태를 즉시 동기화"""
+    if not k8s_enabled:
+        return
+    state = fetch_simulation_state()
+    if state:
+        _apply_desired_state(state)
 
 
 if SIMULATION_ENABLED:
     ensure_baseline_running()
+
+bootstrap_simulation_state_sync()
 
 # 긴급 상황별 트래픽 레벨 (3단계 + OFF 상태)
 emergency_traffic_levels = {

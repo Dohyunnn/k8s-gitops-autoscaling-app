@@ -18,6 +18,7 @@ spec:
       labels:
         app: backend
     spec:
+      serviceAccountName: backend-simulation
       imagePullSecrets:
       - name: dockerhub-pull-secret
       nodeSelector:

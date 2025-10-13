@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - backend-deployment.yml
+  - backend-rbac.yml
   - backend-service.yml
   - backend-hpa.yml
   - frontend-deployment.yml

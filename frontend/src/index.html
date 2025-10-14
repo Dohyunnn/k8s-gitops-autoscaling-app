@@ -449,7 +449,7 @@
                 <div id="trafficStatus" class="traffic-status">
                     <div class="traffic-metric">
                         <span class="traffic-label">부하 레벨</span>
-                        <span id="trafficLevel" class="traffic-value tone-off">기본</span>
+                        <span id="trafficLevel" class="traffic-value tone-off">0</span>
                     </div>
                     <div class="traffic-metric">
                         <span class="traffic-label">운영 상태</span>
@@ -499,24 +499,28 @@
     <script>
         const TRAFFIC_LEVEL_DETAILS = {
             off: {
+                code: 0,
                 label: '기본',
                 status: '정상 운영 중입니다.',
                 users: '40~80명',
                 pods: '2~3개'
             },
             low: {
+                code: 1,
                 label: '낮음',
                 status: '시스템 이슈 대응 중입니다.',
-                users: '120~200명',
+                users: '0~300명',
                 pods: '2개'
             },
             medium: {
+                code: 2,
                 label: '중간',
                 status: '대량 거래로 부하가 증가했습니다.',
                 users: '400~750명',
                 pods: '6~10개'
             },
             high: {
+                code: 3,
                 label: '높음',
                 status: '긴급 뉴스로 접속자가 급증했습니다.',
                 users: '900~1300명',
@@ -529,7 +533,8 @@
         const trafficStateTracker = {
             stableLevel: 'off',
             pendingLevel: null,
-            pendingCount: 0
+            pendingCount: 0,
+            initialized: false
         };
 
         function normalizeTrafficLevel(level) {
@@ -570,7 +575,7 @@
             const normalized = normalizeTrafficLevel(level);
             const info = getTrafficInfo(normalized);
 
-            updateElementText('trafficLevel', info.label, normalized, 'traffic-value');
+            updateElementText('trafficLevel', String(info.code), normalized, 'traffic-value');
             updateElementText('trafficState', info.status, normalized, 'status-message');
             updateElementText('trafficUsers', info.users, normalized, 'traffic-value');
             updateElementText('trafficPods', info.pods, normalized, 'traffic-value');
@@ -590,6 +595,7 @@
                 trafficStateTracker.stableLevel = normalized;
                 trafficStateTracker.pendingLevel = null;
                 trafficStateTracker.pendingCount = 0;
+                trafficStateTracker.initialized = true;
                 renderTrafficStatus(normalized);
                 return;
             }
@@ -597,6 +603,7 @@
             if (normalized === trafficStateTracker.stableLevel) {
                 trafficStateTracker.pendingLevel = null;
                 trafficStateTracker.pendingCount = 0;
+                trafficStateTracker.initialized = true;
                 renderTrafficStatus(normalized);
                 return;
             }
@@ -612,6 +619,7 @@
                 trafficStateTracker.stableLevel = normalized;
                 trafficStateTracker.pendingLevel = null;
                 trafficStateTracker.pendingCount = 0;
+                trafficStateTracker.initialized = true;
                 renderTrafficStatus(normalized);
             }
         }
@@ -631,8 +639,6 @@
                 tinyStatusContainer.className = 'status-display-tiny tone-high';
             }
         }
-
-        handleTrafficLevelUpdate('off', { force: true });
 
         // 시장 상태 확인
         function checkMarketStatus() {
@@ -703,7 +709,8 @@
                 .then(response => response.json())
                 .then(data => {
                     if (typeof data.traffic_level !== 'undefined') {
-                        handleTrafficLevelUpdate(data.traffic_level);
+                        const forceUpdate = !trafficStateTracker.initialized;
+                        handleTrafficLevelUpdate(data.traffic_level, { force: forceUpdate });
                     }
                 })
                 .catch(error => {
@@ -754,7 +761,8 @@
                     updateStockCards(data.stocks);
 
                     if (typeof data.traffic_level !== 'undefined') {
-                        handleTrafficLevelUpdate(data.traffic_level);
+                        const forceUpdate = !trafficStateTracker.initialized;
+                        handleTrafficLevelUpdate(data.traffic_level, { force: forceUpdate });
                     }
                 })
                 .catch(error => {

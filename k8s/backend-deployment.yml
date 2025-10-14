@@ -21,9 +21,6 @@ spec:
       serviceAccountName: backend-simulation
       imagePullSecrets:
       - name: dockerhub-pull-secret
-      nodeSelector:
-        role: backend
-        db: "true"
       containers:
       - name: backend
         image: dorrry/k8s-gitops-app-backend:627f2de

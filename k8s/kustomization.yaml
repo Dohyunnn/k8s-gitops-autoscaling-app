@@ -9,6 +9,7 @@ resources:
   - frontend-deployment.yml
   - frontend-service.yml
   - frontend-hpa.yml
+  - namespace-policies.yml
   - ingress.yml
   - metallb-config.yml
 

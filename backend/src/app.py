@@ -330,11 +330,11 @@ kis_client = KISAPIClient()
 
 # 트래픽 프로파일 구성 - 각각 CPU 사용량을 유도하는 반복 횟수/휴식 간격
 TRAFFIC_PROFILES = {
-    'low': {'iterations': 35, 'range_limit': 450, 'sleep': 0.5},      # 약 10~15%
+    'low': {'iterations': 15, 'range_limit': 200, 'sleep': 1.0},      # 약 5~8%
     'medium': {'iterations': 160, 'range_limit': 900, 'sleep': 0.12},  # 약 50~70%
     'high': {'iterations': 320, 'range_limit': 1600, 'sleep': 0.04},   # 약 80~95%
 }
-BASELINE_PROFILE = {'iterations': 70, 'range_limit': 520, 'sleep': 0.35}  # OFF 상태 약 20%
+BASELINE_PROFILE = {'iterations': 40, 'range_limit': 350, 'sleep': 0.5}  # OFF 상태 약 15%
 
 def _run_baseline_traffic(stop_event: threading.Event):
     """OFF 상태에서도 약간의 트래픽을 유지하여 기본 부하를 줌"""
